@@ -12,6 +12,27 @@ source("functions/get_basemap_function.R") ## loads one of the bbsBayes strata m
 source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
 
 
+
+output_dir <- "output"
+
+
+if(!dir.exists("Figures")){
+  dir.create("Figures")
+}
+if(!dir.exists("data/maps/")){
+  if(!dir.exists("data/")){
+    dir.create("data/")
+  }
+  dir.create("data/maps/")
+}
+if(!dir.exists(output_dir)){
+  dir.create(output_dir)
+}
+if(!dir.exists("trends")){
+  dir.create("trends")
+}
+
+
 # load and stratify CASW data ---------------------------------------------
 #species = "Pacific Wren"
 strat = "bbs_usgs"
@@ -20,7 +41,6 @@ model = "slope"
 
 firstYear = 1995
 lastYear = 2021
-output_dir <- "output"
 
 ## this list should include all of the species that we're interested in for the grasslands project
 species_list = "Dickcissel"
@@ -116,12 +136,7 @@ route_map = st_transform(route_map,crs = st_crs(realized_strata_map))
 
 ## custom function that returns the adjacency data necessary for the stan model
 ## also exports maps and saved data objects to plot_dir
-if(!dir.exists("data/maps/")){
-  if(!dir.exists("data/")){
-    dir.create("data/")
-  }
-  dir.create("data/maps/")
-}
+
 car_stan_dat <- neighbours_define(real_strata_map = route_map,
                                   #strat_link_fill = 100000,
                                   plot_neighbours = TRUE,
@@ -192,9 +207,7 @@ save(list = c("stan_data",
 
 
 slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
-if(!dir.exists(output_dir)){
-  dir.create(output_dir)
-}
+
 stanfit <- slope_model$sample(
   data=stan_data,
   refresh=200,
@@ -280,9 +293,7 @@ est_table <- inner_join(trends,
   mutate(species = species,
          trend_time = paste(firstYear,lastYear,sep = "-"))
 
-if(!dir.exists("trends")){
-  dir.create("trends")
-}
+
 #writes a csv file for each species
 write.csv(est_table,
           paste0("trends/",species_f,"_trends_",firstYear,"-",lastYear,".csv"),
@@ -330,9 +341,7 @@ tmap = ggplot(trend_plot_map)+
                       name = paste0(lgnd_head,firstYear,"-",lastYear))+
   coord_sf(xlim = xlms,ylim = ylms)
 
-if(!file.exists("Figures")){
-  file.create("Figures")
-}
+
 pdf(file = paste0("Figures/",species_f,"_",firstYear,"-",lastYear,"_trend_map.pdf"),
     width = 10,
     height = 8)
