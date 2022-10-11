@@ -43,7 +43,11 @@ firstYear = 1995
 lastYear = 2021
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = "Dickcissel"
+species_list = c("Chestnut-collared Longspur",
+                 "Thick-billed Longspur",
+                 "Eastern Meadowlark",
+                 "Western Meadowlark",
+                 "Savannah Sparrow")
 
 
 # these two can be set to FALSE if it makes sense just to fit the models and store the model output from Stan
@@ -51,14 +55,18 @@ species_list = "Dickcissel"
 produce_trends <- TRUE
 produce_maps <- TRUE # this is only relevant if produce_trends == TRUE
 
+
+strat_data <- bbsBayes::stratify(by = strat)
+
 # I've got this running as a simple species loop
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list){
+for(species in species_list[4]){
   
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
 spp <- "_BYM_"
-
+# for(firstYear in c(1970,1980,1990,2000,2010)){
+#   for(lastYear in c(firstYear + 11,2021)){
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
@@ -67,10 +75,9 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
 
-sp_data_file <- paste0(output_dir,"/",species_f,"_",firstYear,"_",lastYear,"_stan_data.RData")
+sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_stan_data.RData")
 
 
-strat_data <- bbsBayes::stratify(by = strat)
 
 ### this is the alternate prepare data function
 jags_data = prepare_data(strat_data = strat_data,
@@ -223,7 +230,7 @@ stanfit <- slope_model$sample(
   output_basename = out_base)
 
 summ <- stanfit$summary()
-
+print(stanfit$time())
 save(list = c("stanfit","summ"),
      file = paste0(output_dir,"/",out_base,"_stanfit.RData"))
 
