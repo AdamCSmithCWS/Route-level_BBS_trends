@@ -1,7 +1,7 @@
 ## Fitting the BYM model to 1995 - 2021 BBS data
 ## script currently written to fit the model then save the Stan output to a directory
 ## 
-#setwd("C:/GitHub/BBS_iCAR_route_trends")
+#setwd("C:/GitHub/iCAR_route_2021")
 library(bbsBayes)
 library(tidyverse)
 library(cmdstanr)
@@ -34,13 +34,11 @@ if(!dir.exists("trends")){
 
 
 # load and stratify CASW data ---------------------------------------------
-#species = "Pacific Wren"
+species = "Long-billed Curlew"
 strat = "bbs_usgs"
 model = "slope"
 
 
-firstYear = 1995
-lastYear = 2021
 
 ## this list should include all of the species that we're interested in for the grasslands project
 species_list = c("Chestnut-collared Longspur",
@@ -58,15 +56,26 @@ produce_maps <- TRUE # this is only relevant if produce_trends == TRUE
 
 strat_data <- bbsBayes::stratify(by = strat)
 
+firstYear = 2000
+lastYear = 2021
+
 # I've got this running as a simple species loop
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list[4]){
+#for(species in species_list[4]){
   
+#species <- "Connecticut Warbler"
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
 spp <- "_BYM_"
-# for(firstYear in c(1970,1980,1990,2000,2010)){
-#   for(lastYear in c(firstYear + 11,2021)){
+
+spans <- data.frame(ly = c(2021),
+                    fy = c(2007))
+#for(){
+#  for(firstYear in c(lastYear - 10,lastYear - 20)){
+
+for(ii in 1:nrow(spans)){
+  firstYear <- spans[ii,"fy"]
+  lastYear <- spans[ii,"ly"]
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
@@ -86,7 +95,8 @@ jags_data = prepare_data(strat_data = strat_data,
                               #n_knots = 10,
                               min_year = firstYear,
                               max_year = lastYear,
-                              min_n_routes = 1)# spatial neighbourhood define --------------------------------------------
+                              min_n_routes = 1,
+                         min_max_route_years = 1)# spatial neighbourhood define --------------------------------------------
 
 # strata map of one of the bbsBayes base maps
 # helps group and set boundaries for the route-level neighbours,
@@ -242,11 +252,13 @@ routes_df <- data.frame(routeF = jags_data$routeF,
                         route = jags_data$route,
                         year = jags_data$r_year,
                         obs = jags_data$obser,
-                        stratum = jags_data$strat_name) %>% 
-  group_by(route,routeF,obs,stratum) %>%
+                        stratum = jags_data$strat_name,
+                        Latitude = jags_data$Latitude,
+                        Longitude = jags_data$Longitude) %>% 
+  group_by(route,routeF,obs,stratum,Longitude,Latitude) %>%
   summarise(n_yr_obs = n(),
             .groups = "drop") %>% 
-  group_by(route,routeF,stratum) %>% 
+  group_by(route,routeF,stratum,Longitude,Latitude) %>% 
   summarise(n_obs = n(),
             mean_y_obs = mean(n_yr_obs),
             max_y_obs = max(n_yr_obs),
@@ -291,7 +303,7 @@ trends <- posterior_samples(fit = stanfit,
          log_scale_slope_uci = uci,
          log_scale_slope_se = sd,
          log_scale_slope_Wci = log_scale_slope_uci-log_scale_slope_lci) %>% 
-  select(route,trend,trend_lci,trend_uci,trend_se,trend_Wci,
+  select(route,stratum,Latitude,Longitude,trend,trend_lci,trend_uci,trend_se,trend_Wci,
          log_scale_slope,log_scale_slope_lci,log_scale_slope_uci,log_scale_slope_se,log_scale_slope_Wci)
 
 est_table <- inner_join(trends,
@@ -306,12 +318,35 @@ write.csv(est_table,
           paste0("trends/",species_f,"_trends_",firstYear,"-",lastYear,".csv"),
           row.names = FALSE)
 #also appends species results to an all trends file
-write.csv(est_table,
+if(file.exists(paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"))){
+write.table(est_table,
           paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
+          sep = ",",
           row.names = FALSE,
-          append = TRUE)
+          append = TRUE,
+          col.names = FALSE)
+  }else{
+            write.table(est_table,
+                        paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
+                        sep = ",",
+                        row.names = FALSE,
+                        append = FALSE,
+                        col.names = TRUE)  
+          }
 # if it makes sense to output the pdf maps of species trends
 if(produce_maps){
+  
+  other_routes <- strat_data$route_strat %>% 
+    select(strat_name,Latitude,Longitude,rt.uni,Year) %>%
+    filter(Year %in% c(firstYear:lastYear)) %>% 
+    distinct() %>% 
+    rename(route = rt.uni) %>% 
+    filter(!route %in% route_map$route) %>% 
+    st_as_sf(.,coords = c("Longitude","Latitude"))
+  
+  st_crs(other_routes) <- 4269 #NAD83 commonly used by US federal agencies
+  
+  
   
 route_bounds <- st_union(route_map) #union to provide a simple border of the realised strata
 bb = st_bbox(route_bounds)
@@ -340,12 +375,15 @@ names(map_palette) <- labls
 tmap = ggplot(trend_plot_map)+
   #geom_sf(data = realized_strata_map,colour = gray(0.8),fill = NA)+
   geom_sf(data = strata_map,colour = gray(0.8),fill = NA)+
+  geom_sf(data = other_routes,colour = grey(0.7),inherit.aes = FALSE,size = 0.15,
+          show.legend = FALSE)+
   geom_sf(aes(colour = Tplot,size = abund))+
-  scale_size_continuous(range = c(0.05,2),
+  scale_size_continuous(range = c(0.4,2),
                         name = "Mean Count")+
   scale_colour_manual(values = map_palette, aesthetics = c("colour"),
                       guide = guide_legend(reverse=TRUE),
                       name = paste0(lgnd_head,firstYear,"-",lastYear))+
+  theme_minimal()+
   coord_sf(xlim = xlms,ylim = ylms)
 
 
