@@ -34,7 +34,6 @@ if(!dir.exists("trends")){
 
 
 # load and stratify CASW data ---------------------------------------------
-species = "Long-billed Curlew"
 strat = "bbs_usgs"
 model = "slope"
 
@@ -56,30 +55,29 @@ produce_maps <- TRUE # this is only relevant if produce_trends == TRUE
 
 strat_data <- bbsBayes::stratify(by = strat)
 
-firstYear = 2000
-lastYear = 2021
 
-# I've got this running as a simple species loop
-# it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-#for(species in species_list[4]){
-  
-#species <- "Connecticut Warbler"
-species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
 spp <- "_BYM_"
 
-spans <- data.frame(ly = c(2021),
-                    fy = c(2007))
-#for(){
-#  for(firstYear in c(lastYear - 10,lastYear - 20)){
+spans <- data.frame(ly = c(2021), #last year of the time-span
+                    fy = c(2007)) # first year of the time-span
+
+# SPECIES LOOP ------------------------------------------------------------
+
+# I've got this running as a species loop with a time-spans loop nested within
+# it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
+for(species in species_list){
+
+
+species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
+
+
 
 for(ii in 1:nrow(spans)){
   firstYear <- spans[ii,"fy"]
   lastYear <- spans[ii,"ly"]
+  
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
-
-
-# SPECIES LOOP ------------------------------------------------------------
 
 
 
@@ -396,6 +394,9 @@ dev.off()
 }#end if produce_maps 
 
 }# end if produce_trends
+
+
+}# end spans loop
 
 }# end of species loop
 
