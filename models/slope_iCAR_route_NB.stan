@@ -37,7 +37,7 @@ data {
 parameters {
 
   vector[nroutes] beta_raw_space;
-  vector[nroutes] beta_raw_rand;
+  //vector[nroutes] beta_raw_rand;
   real BETA; 
 
   vector[nroutes] alpha_raw;
@@ -51,7 +51,7 @@ parameters {
  //real<lower=1> nu;  //optional heavy-tail df for t-distribution
   real<lower=0> sdobs;    // sd of observer effects
   real<lower=0> sdbeta_space;    // sd of slopes 
- real<lower=0> sdbeta_rand;    // sd of slopes 
+// real<lower=0> sdbeta_rand;    // sd of slopes 
   real<lower=0> sdalpha;    // sd of intercepts
 
   
@@ -62,7 +62,7 @@ model {
 
 
   vector[ncounts] E;           // log_scale additive likelihood
-   vector[nroutes] beta_rand;
+   //vector[nroutes] beta_rand;
   vector[nroutes] beta_space;
  vector[nroutes] beta;
   vector[nroutes] alpha;
@@ -71,9 +71,9 @@ model {
 
 // covariate effect on intercepts and slopes
    beta_space = (sdbeta_space*beta_raw_space);
-   beta_rand = (sdbeta_rand*beta_raw_rand);
+   //beta_rand = (sdbeta_rand*beta_raw_rand);
    
-   beta = beta_space + beta_rand + BETA;
+   beta = beta_space + BETA;
    alpha = (sdalpha*alpha_raw) + ALPHA;
  //  noise = sdnoise*noise_raw;
    obs = sdobs*obs_raw;
@@ -83,11 +83,11 @@ model {
   }
   
   
-  beta_raw_rand ~ normal(0,1);//random slope effects
-  sum(beta_raw_rand) ~ normal(0,0.001*nroutes);
+  // beta_raw_rand ~ normal(0,1);//random slope effects
+  // sum(beta_raw_rand) ~ normal(0,0.001*nroutes);
 
   
-  sdnoise ~ normal(0,0.5); //prior on scale of extra Poisson log-normal variance
+  sdnoise ~ student_t(3,0,1); //prior on scale of extra Poisson log-normal variance
 
   phi = 1/sqrt(sdnoise); //as recommended to avoid prior that places most prior mass at very high overdispersion by https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
 
@@ -99,17 +99,17 @@ model {
   count ~ neg_binomial_2_log(E,phi); //vectorized count likelihood with log-transformation
   
   BETA ~ normal(0,0.1);// prior on fixed effect mean slope
-  ALPHA ~ normal(0,1);// prior on fixed effect mean intercept
+  ALPHA ~ student_t(10,0,3);;// prior on fixed effect mean intercept
   eta ~ normal(0,1);// prior on first-year observer effect
   
   
   //spatial iCAR intercepts and slopes by strata
-  sdalpha ~ normal(0,2); //prior on sd of intercept variation
+  sdalpha ~ student_t(10,0,0.1);//prior on sd of intercept variation
   // sdbeta_space ~ gamma(2,50);//~ normal(0,0.05); //boundary avoiding prior on sd of slope spatial variation w mean = 0.04 and 99% < 0.13
   // sdbeta_rand  ~ gamma(2,50);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
 
   sdbeta_space ~ student_t(10,0,0.1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope spatial variation w mean = 0.04 and 99% < 0.13
-  sdbeta_rand  ~ student_t(10,0,1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
+  //sdbeta_rand  ~ student_t(10,0,1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
 
   beta_raw_space ~ icar_normal(nroutes, node1, node2);
   alpha_raw ~ icar_normal(nroutes, node1, node2);
@@ -119,16 +119,16 @@ model {
 
  generated quantities {
 
-   vector[nroutes] beta_rand;
+   //vector[nroutes] beta_rand;
   vector[nroutes] beta_space;
   vector[nroutes] beta;
   vector[nroutes] alpha;
 
 // intercepts and slopes
    beta_space = (sdbeta_space*beta_raw_space);
-   beta_rand = (sdbeta_rand*beta_raw_rand);
+   //beta_rand = (sdbeta_rand*beta_raw_rand);
    
-   beta = beta_space + beta_rand + BETA;
+   beta = beta_space + BETA;
     alpha = (sdalpha*alpha_raw) + ALPHA;
   
 

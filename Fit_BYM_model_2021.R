@@ -60,7 +60,7 @@ strat_data <- bbsBayes::stratify(by = strat)
 spp <- "_BYM_"
 
 spans <- data.frame(ly = c(2021), #last year of the time-span
-                    fy = c(2007)) # first year of the time-span
+                    fy = c(1970)) # first year of the time-span
 
 # SPECIES LOOP ------------------------------------------------------------
 
@@ -204,20 +204,36 @@ save(list = c("stan_data",
 
 
 
-  mod.file = "models/slope_BYM_route_NB.stan"
-  
-  init_def <- function(){ list(alpha_raw = rnorm(stan_data$nroutes,0,0.1),
-                               sdalpha = runif(1,0.01,0.1),
-                               ALPHA = 0,
-                               BETA = 0,
-                               eta = 0,
-                               obs_raw = rnorm(stan_data$nobservers,0,0.1),
-                               sdnoise = 0.2,
-                               sdobs = 0.1,
-                               sdbeta_rand = runif(1,0.01,0.1),
-                               beta_raw_rand = rnorm(stan_data$nroutes,0,0.01),
-                               sdbeta_space = runif(1,0.01,0.1),
-                               beta_raw_space = rnorm(stan_data$nroutes,0,0.01))} 
+mod.file = "models/slope_iCAR_route_NB.stan"
+
+init_def <- function(){ list(alpha_raw = rnorm(stan_data$nroutes,0,0.1),
+                             sdalpha = runif(1,0.01,0.1),
+                             ALPHA = 0,
+                             BETA = 0,
+                             eta = 0,
+                             obs_raw = rnorm(stan_data$nobservers,0,0.1),
+                             sdnoise = 0.2,
+                             sdobs = 0.1,
+                             #sdbeta_rand = runif(1,0.01,0.1),
+                             #beta_raw_rand = rnorm(stan_data$nroutes,0,0.01),
+                             sdbeta_space = runif(1,0.01,0.1),
+                             beta_raw_space = rnorm(stan_data$nroutes,0,0.01))} 
+
+# 
+#   mod.file = "models/slope_BYM_route_NB.stan"
+#   
+#   init_def <- function(){ list(alpha_raw = rnorm(stan_data$nroutes,0,0.1),
+#                                sdalpha = runif(1,0.01,0.1),
+#                                ALPHA = 0,
+#                                BETA = 0,
+#                                eta = 0,
+#                                obs_raw = rnorm(stan_data$nobservers,0,0.1),
+#                                sdnoise = 0.2,
+#                                sdobs = 0.1,
+#                                sdbeta_rand = runif(1,0.01,0.1),
+#                                beta_raw_rand = rnorm(stan_data$nroutes,0,0.01),
+#                                sdbeta_space = runif(1,0.01,0.1),
+#                                beta_raw_space = rnorm(stan_data$nroutes,0,0.01))} 
 
 
 
@@ -226,13 +242,13 @@ slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
 stanfit <- slope_model$sample(
   data=stan_data,
   refresh=200,
-  chains=3, iter_sampling=1000,
-  iter_warmup=1000,
-  parallel_chains = 3,
+  chains=3, iter_sampling=2000,
+  iter_warmup=2000,
+  parallel_chains = 4,
   #pars = parms,
   adapt_delta = 0.8,
   max_treedepth = 14,
-  seed = 123,
+  #seed = 123,
   init = init_def,
   output_dir = output_dir,
   output_basename = out_base)
