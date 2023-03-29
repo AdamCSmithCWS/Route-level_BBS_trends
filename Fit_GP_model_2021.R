@@ -50,15 +50,17 @@ spans <- data.frame(ly = c(2021), #last year of the time-span
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list){
 
+#for(species in species_list){
+species <- species_list[1]
 
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
 
 
-for(ii in 1:nrow(spans)){
-  firstYear <- spans[ii,"fy"]
+#for(ii in 1:nrow(spans)){
+ ii <- 1
+ firstYear <- spans[ii,"fy"]
   lastYear <- spans[ii,"ly"]
   
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
@@ -139,7 +141,9 @@ route_map = st_transform(route_map,crs = st_crs(realized_strata_map))
 GP_stan_dat <- dist_matrix(points_sf = route_map, #simple feature points
                                strat_indicator = "routeF")
 
+units(GP_stan_dat)
 
+units(GP_stan_dat) <- NULL
 
 
 
@@ -215,13 +219,13 @@ slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
 
 stanfit <- slope_model$sample(
   data=stan_data,
-  refresh=200,
-  chains=3, iter_sampling=2000,
-  iter_warmup=2000,
+  refresh=50,
+  chains=3, iter_sampling=1000,
+  iter_warmup=1000,
   parallel_chains = 4,
   #pars = parms,
   adapt_delta = 0.8,
-  max_treedepth = 14,
+  max_treedepth = 10,
   #seed = 123,
   #init = init_def,
   output_dir = output_dir,
