@@ -282,3 +282,32 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
               adj_matrix = car_stan$adj_matrix,
               map = ggp))
 } ### end of function
+
+
+
+
+# Distance_matrix ---------------------------------------------------------
+
+dist_matrix <- function(
+    points_sf = route_starts, #simple feature points
+    strat_indicator = "route"
+    ){
+  require(spdep)
+  require(sf)
+  require(tidyverse)
+  
+  real_map <- points_sf %>% rename_with(.,
+                                        ~ gsub(pattern = strat_indicator,
+                                               replacement = "site_lab",
+                                               .x, fixed = TRUE)) %>% 
+    group_by(site_lab) %>% 
+    summarise() 
+  
+  #export distance matrix in km/1000
+  mat <- as.matrix(st_distance(real_map))/1000000
+  attr(mat,"units") <- "1000km"
+  return(mat)
+  
+}
+
+
