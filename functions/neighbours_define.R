@@ -301,11 +301,12 @@ dist_matrix <- function(
                                                replacement = "site_lab",
                                                .x, fixed = TRUE)) %>% 
     group_by(site_lab) %>% 
-    summarise() 
+    summarise() %>% 
+    arrange(site_lab)
   
-  #export distance matrix in km/1000
-  mat <- as.matrix(st_distance(real_map))/1000000
-  attr(mat,"units") <- "1000km"
+  #export distance matrix in km
+  mat <- as.matrix(st_distance(real_map))/1000
+  attr(mat,"units") <- "km"
   return(mat)
   
 }

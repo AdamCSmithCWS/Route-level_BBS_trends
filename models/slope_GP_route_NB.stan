@@ -14,10 +14,10 @@ functions {
                 real alpha,
                 real rho,
                 real delta) {
-    matrix[N, N] Sigma;
-    Sigma = square(alpha) * exp(-0.5 * (square(distances / rho))) +
+    matrix[N, N] K;
+    K = square(alpha) * exp(-0.5 * (square(distances / rho))) +
             diag_matrix(rep_vector(delta, N));
-    return cholesky_decompose(Sigma);
+    return cholesky_decompose(K); //this explodes the computational requirements for large N (n^3)
   }
 }
 data {
@@ -71,17 +71,18 @@ parameters {
 }
 
 transformed parameters {
+  //this is the aspect of the GP that explodes the memory requirements nroutes^2 *2
   // Calculate the latent Gaussian process function
-  matrix[nroutes, nroutes] beta_space_raw = L_cov_exp_quad_dis(nroutes, distances, gp_alpha_beta, gp_rho_beta, delta);
-  vector[nroutes] beta_space = beta_space_raw * gp_eta_beta;
+  matrix[nroutes, nroutes] beta_LK = L_cov_exp_quad_dis(nroutes, distances, gp_alpha_beta, gp_rho_beta, delta);
+  vector[nroutes] beta_space = beta_LK * gp_eta_beta;
 
-  matrix[nroutes, nroutes] alpha_space_raw = L_cov_exp_quad_dis(nroutes, distances, gp_alpha_alpha, gp_rho_alpha, delta);
-  vector[nroutes] alpha_space = alpha_space_raw * gp_eta_alpha;
+  matrix[nroutes, nroutes] alpha_LK = L_cov_exp_quad_dis(nroutes, distances, gp_alpha_alpha, gp_rho_alpha, delta);
+  vector[nroutes] alpha_space = alpha_LK * gp_eta_alpha;
 
    vector[nroutes] beta = beta_space + BETA;
    vector[nroutes] alpha = alpha_space + ALPHA;
    real phi = 1/sqrt(sdnoise); //as recommended to avoid prior that places most prior mass at very high overdispersion by https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
-;
+
 
 }
 
@@ -93,18 +94,20 @@ model {
   // Prior for the GP length scale (i.e. spatial decay)
   // very small values will be inidentifiable, so an informative prior
   // is a must
-  gp_rho_beta ~ normal(2, 2.5);
-  gp_rho_alpha ~ normal(2, 2.5);
+  // gp_rho_beta ~ normal(2, 2.5);
+  // gp_rho_alpha ~ normal(2, 2.5);
+  gp_rho_beta ~ inv_gamma(5,5);
+  gp_rho_alpha ~ inv_gamma(5,5);
   // Prior for the GP covariance magnitude
-  gp_alpha_beta ~ std_normal();
-  gp_alpha_alpha ~ std_normal();
+  gp_alpha_beta ~ student_t(5,0,3);
+  gp_alpha_alpha ~ student_t(5,0,3);
   // Multiplier for non-centred GP parameterisation
-  gp_eta_beta ~ std_normal();
-  gp_eta_alpha ~ std_normal();
+  gp_eta_beta ~ normal(0,0.1);
+  gp_eta_alpha ~ student_t(5,0,3);
   
   sdnoise ~ student_t(3,0,1); //prior on scale of extra Poisson log-normal variance
 
-  sdobs ~ std_normal(); //prior on sd of gam hyperparameters
+  sdobs ~ std_normal(); //prior on sd of observer effects
  
   obs_raw ~ std_normal();//observer effects
   sum(obs_raw) ~ normal(0,0.001*nobservers);

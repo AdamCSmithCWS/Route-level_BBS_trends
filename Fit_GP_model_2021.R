@@ -2,6 +2,7 @@
 ## script currently written to fit the model then save the Stan output to a directory
 ## 
 #setwd("C:/GitHub/iCAR_route_2021")
+setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 library(bbsBayes)
 library(tidyverse)
 library(cmdstanr)
@@ -24,7 +25,8 @@ model = "slope"
 
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = c("Chestnut-collared Longspur",
+species_list = c("Dickcissel",
+                 "Chestnut-collared Longspur",
                  "Thick-billed Longspur",
                  "Eastern Meadowlark",
                  "Western Meadowlark",
@@ -41,7 +43,6 @@ strat_data <- bbsBayes::stratify(by = strat)
 
 
 
-spp <- "_GP_"
 
 spans <- data.frame(ly = c(2021), #last year of the time-span
                     fy = c(2001)) # first year of the time-span
@@ -62,6 +63,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
  ii <- 1
  firstYear <- spans[ii,"fy"]
   lastYear <- spans[ii,"ly"]
+  spp <- "_GP_"
   
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
@@ -146,8 +148,6 @@ units(GP_stan_dat)
 units(GP_stan_dat) <- NULL
 
 
-
-
 stan_data = jags_data[c("ncounts",
                         #"nstrata",
                         #"nobservers",
@@ -167,6 +167,22 @@ stan_data[["distances"]] = GP_stan_dat
 stan_data[["route"]] = jags_data$routeF
 stan_data[["nroutes"]] = max(jags_data$routeF)
 
+
+
+dist_1a <- data.frame(routeF = 1:stan_data[["nroutes"]],
+                      dist_1 = GP_stan_dat[,21])
+dist_1 <- route_map %>%  
+  left_join(.,dist_1a,
+            by = "routeF")
+
+test_plot <- ggplot(data = dist_1)+
+  geom_sf(aes(colour = dist_1),
+          size = 3)+
+  geom_sf_text(aes(label = routeF),
+               size = 3,
+               alpha = 0.7,
+               nudge_x = 10000)
+test_plot
 
 if(dim(GP_stan_dat)[1] != stan_data[["nroutes"]]){stop("Some routes are missing from adjacency matrix")}
 

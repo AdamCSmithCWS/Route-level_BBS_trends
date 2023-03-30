@@ -40,7 +40,8 @@ model = "slope"
 
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = c("Chestnut-collared Longspur",
+species_list = c("Dickcissel",
+                 "Chestnut-collared Longspur",
                  "Thick-billed Longspur",
                  "Eastern Meadowlark",
                  "Western Meadowlark",
@@ -66,15 +67,17 @@ spans <- data.frame(ly = c(2021), #last year of the time-span
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list){
+#for(species in species_list){
+species <- species_list[1]
 
 
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
 
 
-for(ii in 1:nrow(spans)){
-  firstYear <- spans[ii,"fy"]
+#for(ii in 1:nrow(spans)){
+ii <- 1
+firstYear <- spans[ii,"fy"]
   lastYear <- spans[ii,"ly"]
   
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
@@ -329,24 +332,24 @@ est_table <- inner_join(trends,
 
 #writes a csv file for each species
 write.csv(est_table,
-          paste0("trends/",species_f,"_trends_",firstYear,"-",lastYear,".csv"),
+          paste0("trends/","trends_",out_base,".csv"),
           row.names = FALSE)
 #also appends species results to an all trends file
-if(file.exists(paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"))){
-write.table(est_table,
-          paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
-          sep = ",",
-          row.names = FALSE,
-          append = TRUE,
-          col.names = FALSE)
-  }else{
-            write.table(est_table,
-                        paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
-                        sep = ",",
-                        row.names = FALSE,
-                        append = FALSE,
-                        col.names = TRUE)  
-          }
+# if(file.exists(paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"))){
+# write.table(est_table,
+#           paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
+#           sep = ",",
+#           row.names = FALSE,
+#           append = TRUE,
+#           col.names = FALSE)
+#   }else{
+#             write.table(est_table,
+#                         paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
+#                         sep = ",",
+#                         row.names = FALSE,
+#                         append = FALSE,
+#                         col.names = TRUE)  
+#           }
 # if it makes sense to output the pdf maps of species trends
 if(produce_maps){
   
@@ -401,7 +404,7 @@ tmap = ggplot(trend_plot_map)+
   coord_sf(xlim = xlms,ylim = ylms)
 
 
-pdf(file = paste0("Figures/",species_f,"_",firstYear,"-",lastYear,"_trend_map.pdf"),
+pdf(file = paste0("Figures/",out_base,"_trend_map.pdf"),
     width = 10,
     height = 8)
 print(tmap)
