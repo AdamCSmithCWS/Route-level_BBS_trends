@@ -16,7 +16,7 @@ data {
   int<lower=1> nroutes;
   int<lower=1> ncounts;
   int<lower=1> nyears;
-  int<lower=0> nobservers;
+  int<lower=1> nobservers;
  
   array [ncounts] int<lower=0> count;              // count observations
   array [ncounts] int<lower=1> year; // year index
@@ -32,11 +32,12 @@ data {
   array [N_edges] int<lower=1, upper=nroutes> node2;  // and node1[i] < node2[i]
 
 
-  int<lower=0,upper=1> calc_CV; //indicator if CV should be calculated (CrossValidation = 1, no CV = 0)
-  // CV folds - if calc_CV == 1 then the following values define the training and test sets
-  int<lower=1, upper=n_counts> n_train; //
-  int<lower=1, upper=n_counts> n_test; //
-
+// values for predicting next years data
+  int<lower=1> ncounts_pred;
+  array[ncounts_pred] int<lower=0> count_pred;              // count observations
+  array[ncounts_pred] int<lower=1> route_pred; // route index
+  array[ncounts_pred] int<lower=0> firstyr_pred; // first year index
+  array[ncounts_pred] int<lower=0> observer_pred; 
 
 
 
@@ -117,7 +118,7 @@ model {
   // sdbeta_rand  ~ gamma(2,50);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
 
   sdbeta_space ~ student_t(10,0,0.1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope spatial variation w mean = 0.04 and 99% < 0.13
-  //sdbeta_rand  ~ student_t(10,0,1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
+  //sdbeta_rand  ~ student_t(10,0,0.1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
 
   beta_raw_space ~ icar_normal(nroutes, node1, node2);
   alpha_raw ~ icar_normal(nroutes, node1, node2);
@@ -127,19 +128,35 @@ model {
 
  generated quantities {
 
-   //vector[nroutes] beta_rand;
-  vector[nroutes] beta_space;
   vector[nroutes] beta;
   vector[nroutes] alpha;
+  real phi = 1/sqrt(sdnoise); //as recommended to avoid prior that places most prior mass at very high overdispersion by https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
+  vector[ncounts_pred] log_lik;
+  vector[ncounts_pred] E_pred;           // log_scale additive likelihood
 
 // intercepts and slopes
-   beta_space = (sdbeta_space*beta_raw_space);
-   //beta_rand = (sdbeta_rand*beta_raw_rand);
-   
-   beta = beta_space + BETA;
-    alpha = (sdalpha*alpha_raw) + ALPHA;
+ 
+  beta = (sdbeta_space*beta_raw_space) + BETA;
+  alpha = (sdalpha*alpha_raw) + ALPHA;
   
 
+// Predictions for nyears+1
+
+  for(i in 1:ncounts_pred){
+    real obs_tmp;
+    if(observer_pred[i] == 0) 
+    obs_tmp = normal_rng(0,sdobs);
+    else
+    obs_tmp = sdobs*obs_raw[observer_pred[i]];
+
+    
+    E_pred[i] =  beta[route_pred[i]] * ((nyears+1)-fixedyear) + alpha[route_pred[i]] + obs_tmp + eta*firstyr_pred[i];
+   log_lik[i] = neg_binomial_2_log_lpmf(count_pred[i] | E_pred[i],phi);
+  }
+  
+  
+  
+ 
 
  }
 

@@ -3,10 +3,11 @@
 ## 
 #setwd("C:/GitHub/iCAR_route_2021")
 setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
+
 library(bbsBayes)
 library(tidyverse)
 library(cmdstanr)
-library(patchwork)
+library(sf)
 
 source("functions/neighbours_define.R") ## function to define neighbourhood relationships
 source("functions/prepare-data-alt.R") ## small alteration of the bbsBayes function
@@ -18,6 +19,22 @@ source("functions/posterior_summary_functions.R") ## functions similar to tidyba
 
 output_dir <- "output"
 
+# 
+# if(!dir.exists("Figures")){
+#   dir.create("Figures")
+# }
+# if(!dir.exists("data/maps/")){
+#   if(!dir.exists("data/")){
+#     dir.create("data/")
+#   }
+#   dir.create("data/maps/")
+# }
+# if(!dir.exists(output_dir)){
+#   dir.create(output_dir)
+# }
+# if(!dir.exists("trends")){
+#   dir.create("trends")
+# }
 
 
 # load and stratify CASW data ---------------------------------------------
@@ -45,6 +62,7 @@ strat_data <- bbsBayes::stratify(by = strat)
 
 
 
+spp <- "_iCAR_"
 
 spans <- data.frame(ly = c(2021), #last year of the time-span
                     fy = c(2001)) # first year of the time-span
@@ -53,19 +71,18 @@ spans <- data.frame(ly = c(2021), #last year of the time-span
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-
 #for(species in species_list){
 species <- species_list[2]
+
 
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
 
 
 #for(ii in 1:nrow(spans)){
- ii <- 1
- firstYear <- spans[ii,"fy"]
+ii <- 1
+firstYear <- spans[ii,"fy"]
   lastYear <- spans[ii,"ly"]
-  spp <- "_GP_"
   
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
@@ -76,132 +93,16 @@ sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_stan_data.
 
 
 
-### this is the alternate prepare data function
-jags_data = prepare_data(strat_data = strat_data,
-                              species_to_run = species,
-                              model = model,
-                              #n_knots = 10,
-                              min_year = firstYear,
-                              max_year = lastYear,
-                              min_n_routes = 1,
-                         min_max_route_years = 1)# spatial neighbourhood define --------------------------------------------
-
-# strata map of one of the bbsBayes base maps
-# helps group and set boundaries for the route-level neighbours,
-## NOT directly used in the model
-strata_map  <- get_basemap(strata_type = strat,
-                           transform_laea = TRUE,
-                           append_area_weights = FALSE)
-
-strata_list <- data.frame(ST_12 = unique(jags_data$strat_name),
-                          strat = unique(jags_data$strat))
-
-#drops the strata that are not included for this species
-# and adds the strat indicator variable to link to model output
-realized_strata_map <- filter(strata_map,ST_12 %in% unique(jags_data$strat_name)) %>% 
-  inner_join(.,strata_list, by = "ST_12")
-
-# Spatial boundaries set up --------------------
-
-jags_data[["routeF"]] <- as.integer(factor((jags_data$route)))
-
-#create a data frame of each unique route in the species-specific dataset
-route_map = unique(data.frame(route = jags_data$route,
-                              routeF = jags_data$routeF,
-                              strat = jags_data$strat_name,
-                              Latitude = jags_data$Latitude,
-                              Longitude = jags_data$Longitude))
 
 
-# reconcile duplicate spatial locations -----------------------------------
-# adhoc way of separating different routes with the same starting coordinates
-# this shifts the starting coordinates of teh duplicates by ~1.5km to the North East 
-# ensures that the duplicates have a unique spatial location, but remain very close to
-# their original location and retain reasonable neighbourhood relationships
-# these duplicates happen when a "new" route is established because some large proportion
-# of the end of a route is changed, but the start-point remains the same
-dups = which(duplicated(route_map[,c("Latitude","Longitude")]))
-while(length(dups) > 0){
-  route_map[dups,"Latitude"] <- route_map[dups,"Latitude"]+0.01 #=0.01 decimal degrees ~ 1km
-  route_map[dups,"Longitude"] <- route_map[dups,"Longitude"]+0.01 #=0.01 decimal degrees ~ 1km
-  dups = which(duplicated(route_map[,c("Latitude","Longitude")]))
-  
-}
-dups = which(duplicated(route_map[,c("Latitude","Longitude")])) 
-if(length(dups) > 0){stop(paste(spec,"At least one duplicate route remains"))}
+load(sp_data_file)
 
+# stan_data[["N_edges"]] <- NULL
+# stan_data[["node1"]] <- NULL
+# stan_data[["node2"]] <- NULL
 
-#create spatial object from route_map dataframe
-route_map = st_as_sf(route_map,coords = c("Longitude","Latitude"))
-st_crs(route_map) <- 4269 #NAD83 commonly used by US federal agencies
-
-#reconcile the projections of routes and base bbs strata
-route_map = st_transform(route_map,crs = st_crs(realized_strata_map))
-
-
-## custom function that returns the adjacency data necessary for the stan model
-## also exports maps and saved data objects to plot_dir
-
-GP_stan_dat <- dist_matrix(points_sf = route_map, #simple feature points
-                               strat_indicator = "routeF")
-
-units(GP_stan_dat)
-
-units(GP_stan_dat) <- NULL
-
-
-stan_data = jags_data[c("ncounts",
-                        #"nstrata",
-                        #"nobservers",
-                        "count",
-                        #"strat",
-                        #"obser",
-                        "year",
-                        "firstyr",
-                        "fixedyear")]
-stan_data[["nyears"]] <- max(jags_data$year)
-stan_data[["observer"]] <- as.integer(factor((jags_data$ObsN)))
-stan_data[["nobservers"]] <- max(stan_data$observer)
-
-
-
-stan_data[["distances"]] = GP_stan_dat
-stan_data[["route"]] = jags_data$routeF
-stan_data[["nroutes"]] = max(jags_data$routeF)
-
-
-
-dist_1a <- data.frame(routeF = 1:stan_data[["nroutes"]],
-                      dist_1 = GP_stan_dat[,21])
-dist_1 <- route_map %>%  
-  left_join(.,dist_1a,
-            by = "routeF")
-
-test_plot <- ggplot(data = dist_1)+
-  geom_sf(aes(colour = dist_1),
-          size = 3)+
-  geom_sf_text(aes(label = routeF),
-               size = 3,
-               alpha = 0.7,
-               nudge_x = 10000)
-test_plot
-
-if(dim(GP_stan_dat)[1] != stan_data[["nroutes"]]){stop("Some routes are missing from adjacency matrix")}
-
-save(list = c("stan_data",
-              "jags_data",
-              "route_map",
-              "realized_strata_map",
-              "firstYear"),
-     file = sp_data_file)
-
-
-
-
-
-
-mod.file = "models/slope_GP_route_NB2.stan"
-
+mod.file = "models/slope_iCAR_route_NB.stan"
+# 
 # init_def <- function(){ list(alpha_raw = rnorm(stan_data$nroutes,0,0.1),
 #                              sdalpha = runif(1,0.01,0.1),
 #                              ALPHA = 0,
@@ -214,36 +115,36 @@ mod.file = "models/slope_GP_route_NB2.stan"
 #                              #beta_raw_rand = rnorm(stan_data$nroutes,0,0.01),
 #                              sdbeta_space = runif(1,0.01,0.1),
 #                              beta_raw_space = rnorm(stan_data$nroutes,0,0.01))} 
-
 # 
-#   mod.file = "models/slope_BYM_route_NB.stan"
-#   
-#   init_def <- function(){ list(alpha_raw = rnorm(stan_data$nroutes,0,0.1),
-#                                sdalpha = runif(1,0.01,0.1),
-#                                ALPHA = 0,
-#                                BETA = 0,
-#                                eta = 0,
-#                                obs_raw = rnorm(stan_data$nobservers,0,0.1),
-#                                sdnoise = 0.2,
-#                                sdobs = 0.1,
-#                                sdbeta_rand = runif(1,0.01,0.1),
-#                                beta_raw_rand = rnorm(stan_data$nroutes,0,0.01),
-#                                sdbeta_space = runif(1,0.01,0.1),
-#                                beta_raw_space = rnorm(stan_data$nroutes,0,0.01))} 
-
+# # 
+# #   mod.file = "models/slope_BYM_route_NB.stan"
+# #   
+# #   init_def <- function(){ list(alpha_raw = rnorm(stan_data$nroutes,0,0.1),
+# #                                sdalpha = runif(1,0.01,0.1),
+# #                                ALPHA = 0,
+# #                                BETA = 0,
+# #                                eta = 0,
+# #                                obs_raw = rnorm(stan_data$nobservers,0,0.1),
+# #                                sdnoise = 0.2,
+# #                                sdobs = 0.1,
+# #                                sdbeta_rand = runif(1,0.01,0.1),
+# #                                beta_raw_rand = rnorm(stan_data$nroutes,0,0.01),
+# #                                sdbeta_space = runif(1,0.01,0.1),
+# #                                beta_raw_space = rnorm(stan_data$nroutes,0,0.01))} 
+# 
 
 
 slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
 
 stanfit <- slope_model$sample(
   data=stan_data,
-  refresh=50,
-  chains=3, iter_sampling=1000,
-  iter_warmup=1000,
+  refresh=200,
+  chains=3, iter_sampling=2000,
+  iter_warmup=2000,
   parallel_chains = 4,
   #pars = parms,
   adapt_delta = 0.8,
-  max_treedepth = 10,
+  max_treedepth = 14,
   #seed = 123,
   #init = init_def,
   output_dir = output_dir,
@@ -325,24 +226,24 @@ est_table <- inner_join(trends,
 
 #writes a csv file for each species
 write.csv(est_table,
-          paste0("trends/",species_f,"_trends_",firstYear,"-",lastYear,".csv"),
+          paste0("trends/","trends_",out_base,".csv"),
           row.names = FALSE)
 #also appends species results to an all trends file
-if(file.exists(paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"))){
-write.table(est_table,
-          paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
-          sep = ",",
-          row.names = FALSE,
-          append = TRUE,
-          col.names = FALSE)
-  }else{
-            write.table(est_table,
-                        paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
-                        sep = ",",
-                        row.names = FALSE,
-                        append = FALSE,
-                        col.names = TRUE)  
-          }
+# if(file.exists(paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"))){
+# write.table(est_table,
+#           paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
+#           sep = ",",
+#           row.names = FALSE,
+#           append = TRUE,
+#           col.names = FALSE)
+#   }else{
+#             write.table(est_table,
+#                         paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"),
+#                         sep = ",",
+#                         row.names = FALSE,
+#                         append = FALSE,
+#                         col.names = TRUE)  
+#           }
 # if it makes sense to output the pdf maps of species trends
 if(produce_maps){
   
@@ -397,7 +298,7 @@ tmap = ggplot(trend_plot_map)+
   coord_sf(xlim = xlms,ylim = ylms)
 
 
-pdf(file = paste0("Figures/",species_f,"_",firstYear,"-",lastYear,"_trend_map.pdf"),
+pdf(file = paste0("Figures/",out_base,"_trend_map.pdf"),
     width = 10,
     height = 8)
 print(tmap)
@@ -406,59 +307,6 @@ dev.off()
 }#end if produce_maps 
 
 }# end if produce_trends
-
-trends_bym <- read.csv("trends/trends_Chestnut-collared_longspur_BYM_2001_2021.csv") 
-trends_ns <- read.csv("trends/trends_Chestnut-collared_longspur_nonspatial_2001_2021.csv") 
-
-  trends_gp <- trends %>% 
-  select(route,trend,trend_se) %>% 
-  rename(trend_gp = trend,
-         trend_gp_se = trend_se) %>% 
-    mutate(trend_gp_prec = 1/trend_gp_se^2)
-  
-  trends_ns <- trends_ns %>% 
-    select(route,trend,trend_se) %>% 
-    rename(trend_ns = trend,
-           trend_ns_se = trend_se) %>% 
-    mutate(trend_ns_prec = 1/trend_ns_se^2)
-  
-  
-  trends_both <- trends_bym %>% left_join(.,
-                                          trends_gp,by = "route") %>% 
-    left_join(.,trends_ns,
-              by = "route") %>% 
-    mutate(trend_prec = 1/trend_se^2)
-
-comp <- ggplot(data = trends_both,
-               aes(x = trend_ns,y = trend,
-                   size = trend_ns_prec))+
-  geom_abline(slope = 1,intercept = 0)+
-  geom_hline(yintercept = 0)+
-  geom_vline(xintercept = 0)+
-  coord_cartesian(xlim = c(-25,20),
-                  ylim = c(-25,20))+
-  geom_point()
-comp
-
-comp2 <- ggplot(data = trends_both,
-               aes(x = trend_ns,y = trend_gp,
-                   size = trend_ns_prec))+
-  geom_abline(slope = 1,intercept = 0)+
-  geom_hline(yintercept = 0)+
-  geom_vline(xintercept = 0)+
-  coord_cartesian(xlim = c(-25,20),
-                  ylim = c(-25,20))+
-  geom_point()
-comp2
-
-print(comp + comp2)
-
-
-comp2 <- ggplot(data = trends_both,
-               aes(x = trend_se,y = trend_gp_se))+
-  geom_point(aes(colour = Latitude))+
-  geom_abline(slope = 1,intercept = 0)
-comp2
 
 
 }# end spans loop

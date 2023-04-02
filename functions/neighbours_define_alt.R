@@ -2,6 +2,7 @@
 
 
 neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of strata
+                              filled_strata_map = NULL, #sf map of strata including all stata with no data
                               strat_link_fill = 10000, #distance to fill if strata are not connected
                               buffer = TRUE,
                               convex_hull = FALSE,
@@ -21,6 +22,7 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
   require(spdep)
   require(sf)
   require(tidyverse)
+  require(concaveman)
   
   # function to prep spatial data for stan model ----------------------------
   mungeCARdata4stan = function(adjBUGS,numBUGS) {
@@ -53,16 +55,51 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
     group_by(strat_lab) %>% 
     summarise() 
   
-  centres <- suppressWarnings(st_centroid(real_strata_map))
+  working_strata_map <- real_strata_map
+  
+  
+  if(!is.null(filled_strata_map)){
+    #concave hull polygon to select only intervening strata from base strata map
+    cent1 <- st_centroid(real_strata_map) 
+    
+    cov_hull_fill <- concaveman::concaveman(cent1) %>% 
+      st_buffer(.,100000)
+    plot(cov_hull_fill)
+    
+    
+    
+    #spatial join to link intervening strata and retain the strata ordering of the realised strata
+    filling_strata_map <- filled_strata_map %>% 
+      st_join(.,y = cov_hull_fill,
+              join = st_intersects,left = FALSE) %>% 
+      st_join(.,real_strata_map,
+              join = st_equals) %>% 
+      arrange(strat_lab) %>% 
+      mutate(strat_lab_fill = row_number()) %>% 
+      group_by(strat_lab_fill,strat_lab) %>% 
+      summarise(.groups = "keep") %>% 
+      mutate(check = ifelse(strat_lab == strat_lab_fill,FALSE,TRUE))
+    
+  strat_check <- filling_strata_map %>% 
+    select(strat_lab,strat_lab_fill) %>% 
+    filter(!is.na(strat_lab)) %>% 
+    mutate(check = ifelse(strat_lab == strat_lab_fill,FALSE,TRUE))
+  
+  if(any(strat_check$check)){stop("strata indices do not match")}
+  
+  working_strata_map <- filling_strata_map
+  }
+  
+  centres <- suppressWarnings(st_centroid(working_strata_map))
   
   coords = st_coordinates(centres)
   
   
   if(voronoi == FALSE){
     #check if input layer is polygon, if not set voronoi to TRUE
-    if(any(grepl("POLYGON",class(real_strata_map$geometry[[1]])))){
+    if(any(grepl("POLYGON",class(working_strata_map$geom[[1]])))){
       
-      vintj = arrange(real_strata_map,strat_lab)
+      vintj = arrange(working_strata_map,strat_lab)
       
       nb_db = spdep::poly2nb(vintj,row.names = vintj$strat_lab,queen = FALSE)
       
@@ -135,7 +172,7 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
       nb_mat = spdep::nb2mat(nb_db, style = "B",
                              zero.policy = TRUE) #binary adjacency matrix
       
-      box <- st_as_sfc(st_bbox(real_strata_map))
+      box <- st_as_sfc(st_bbox(working_strata_map))
       
       xb = range(st_coordinates(box)[,"X"])
       yb = range(st_coordinates(box)[,"Y"])
@@ -151,27 +188,32 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
   
   if(voronoi){
     
-    if(any(grepl("POINT",class(real_strata_map$geometry[[1]])))){
-      centres = real_strata_map
+    if(any(grepl("POINT",class(working_strata_map$geometry[[1]])))){
+      centres = working_strata_map
       coords = st_coordinates(centres)
     }else{
-    centres = suppressWarnings(st_centroid(real_strata_map))
+    centres = suppressWarnings(st_centroid(working_strata_map))
     coords = st_coordinates(centres)
     }
     
-    if(convex_hull){
-    cov_hull <- st_convex_hull(st_union(centres))
-    cov_hull_buf = st_buffer(cov_hull,dist = strat_link_fill) #buffering the realised strata by (strat_link_fill/1000)km
-    }
-    if(buffer){
-    cov_hull_buf = st_buffer(st_union(centres),dist = strat_link_fill)
-    if(length(cov_hull_buf[[1]]) > 1){ ### gradually increases buffer until all sites are linked
-      while(length(cov_hull_buf[[1]]) > 1){
-        strat_link_fill <- strat_link_fill*1.1
-        cov_hull_buf = st_buffer(st_union(centres),dist = strat_link_fill)
-      }
-    }
-    }
+    # if(convex_hull){
+    # cov_hull <- st_convex_hull(st_union(centres))
+    # cov_hull_buf = st_buffer(cov_hull,dist = strat_link_fill) #buffering the realised strata by (strat_link_fill/1000)km
+    # }
+    
+    cov_hull_fill <- concaveman::concaveman(centres) %>% 
+      st_buffer(.,100000)
+    plot(cov_hull_fill)
+    
+    # if(buffer){
+    # cov_hull_buf = st_buffer(st_union(centres),dist = strat_link_fill)
+    # if(length(cov_hull_buf[[1]]) > 1){ ### gradually increases buffer until all sites are linked
+    #   while(length(cov_hull_buf[[1]]) > 1){
+    #     strat_link_fill <- strat_link_fill*1.1
+    #     cov_hull_buf = st_buffer(st_union(centres),dist = strat_link_fill)
+    #   }
+    # }
+    # }
     # Voronoi polygons from centres -----------------------------------
     box <- st_as_sfc(st_bbox(centres))
 
@@ -180,7 +222,7 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
     
     v <- st_cast(st_voronoi(st_union(centres), envelope = box))
     
-    vint <- st_sf(st_cast(st_intersection(v,cov_hull_buf),"POLYGON"))
+    vint <- st_sf(st_cast(st_intersection(v,cov_hull_fill),"POLYGON"))
     vintj <- st_join(vint,centres,join = st_contains)
     vintj <- arrange(vintj,strat_lab)
     
@@ -223,7 +265,7 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
     ggp <- ggplot(data = centres)+ 
       geom_sf(aes(col = strat_lab,alpha = 0.5)) 
     # }else{
-    #   ggp <- ggplot(data = real_strata_map)+ 
+    #   ggp <- ggplot(data = working_strata_map)+ 
     #     geom_sf(aes(alpha = 0))  
     #   }
     
@@ -235,9 +277,9 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
   
     ggp <- ggp + 
       geom_segment(data=DA,aes(x = long, y = lat,xend=long_to,yend=lat_to),
-                   inherit.aes = FALSE,size=0.3,alpha=0.4) +
+                   inherit.aes = FALSE,line_width=0.3,alpha=0.4) +
       geom_sf(data = vintj,alpha = 0,colour = grey(0.95))+ 
-      geom_sf(data = real_strata_map,alpha = 0,colour = grey(0.85))+
+      geom_sf(data = working_strata_map,alpha = 0,colour = grey(0.85))+
       geom_sf_text(aes(label = strat_lab),size = 5,alpha = 0.7,colour = "black")+
       labs(title = species)+
         theme_minimal() +
@@ -258,6 +300,7 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
       save_file_name = paste0(plot_dir,species_dirname,plot_file,"_data.RData")
       
       save(list = c("centres",
+                    "working_strata_map",
                     "real_strata_map",
                     "vintj",
                     "nb_db",
@@ -282,33 +325,3 @@ neighbours_define <- function(real_strata_map = realized_strata_map, #sf map of 
               adj_matrix = car_stan$adj_matrix,
               map = ggp))
 } ### end of function
-
-
-
-
-# Distance_matrix ---------------------------------------------------------
-
-dist_matrix <- function(
-    points_sf = route_starts, #simple feature points
-    strat_indicator = "route"
-    ){
-  require(spdep)
-  require(sf)
-  require(tidyverse)
-  
-  real_map <- points_sf %>% rename_with(.,
-                                        ~ gsub(pattern = strat_indicator,
-                                               replacement = "site_lab",
-                                               .x, fixed = TRUE)) %>% 
-    group_by(site_lab) %>% 
-    summarise() %>% 
-    arrange(site_lab)
-  
-  #export distance matrix in km
-  mat <- as.matrix(st_distance(real_map))/1000
-  attr(mat,"units") <- "km"
-  return(mat)
-  
-}
-
-

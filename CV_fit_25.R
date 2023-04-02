@@ -1,0 +1,181 @@
+## 1-step ahead, cross-validation of three route-level trend models for the BBS
+setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
+library(bbsBayes)
+library(tidyverse)
+library(cmdstanr)
+library(sf)
+source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
+## changes captured in a commit on Nov 20, 2020
+output_dir <- "output"
+
+
+
+strat = "bbs_usgs"
+model = "slope"
+
+## this list should include all of the species that we're interested in for the grasslands project
+species_list = c("Baird's Sparrow",
+                 "Black-throated Sparrow",
+                 "Cassin's Sparrow")
+
+
+spp <- "_cv_"
+
+spans <- data.frame(ly = c(2021), #last year of the time-span
+                    fy = c(2001)) # first year of the time-span
+
+
+
+
+for(species in species_list){
+
+  species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
+  
+  
+
+# CROSS-VALIDATION loop through the annual re-fitting --------------------------------------
+
+
+for(sppn in c("iCAR","BYM","nonspatial")){
+  
+  ii <- 1
+  firstYear <- spans[ii,"fy"]
+  lastYear <- spans[ii,"ly"]
+  
+  base_year <- lastYear - floor((lastYear-firstYear)/2) 
+  
+  spp <- paste0("_",sppn,"_")
+  
+  out_base_1 <- paste0(species_f,spp,firstYear,"_",lastYear)
+  
+  
+  
+  
+  sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_CV_data.RData")
+  
+  
+ load(sp_data_file)
+  
+
+  predictions_save <- NULL
+  
+
+for(ynext in (base_year+1):lastYear){
+  
+  out_base <- paste0(species_f,spp,firstYear,"_",ynext,"_CV")
+  
+  sp_file <- paste0(output_dir,"/",out_base,".RData")
+  
+  # setting up the fitting data ------------------------------------------
+  
+  
+  obs_df_fit <- full_data %>% 
+    filter(r_year <= ynext-1) %>% 
+    mutate(observer = as.integer(factor(ObsN)))
+  
+  stan_data <- list(count = obs_df_fit$count,
+                    year = obs_df_fit$year,
+                    route = obs_df_fit$routeF,
+                    firstyr = obs_df_fit$firstyr,
+                    observer = obs_df_fit$observer,
+                    nobservers = max(obs_df_fit$observer),
+                    nyears = max(obs_df_fit$year),
+                    nroutes = nrow(route_map),
+                    ncounts = length(obs_df_fit$count),
+                    fixedyear = floor(max(obs_df_fit$year)/2))
+  obs_df <- obs_df_fit %>% 
+    select(observer,ObsN) %>% 
+    distinct()
+
+  if(spp != "_nonspatial_"){
+    
+  stan_data[["N_edges"]] = car_stan_dat$N_edges
+  stan_data[["node1"]] = car_stan_dat$node1
+  stan_data[["node2"]] = car_stan_dat$node2
+  }  
+  
+  # setting up the prediction data ------------------------------------------
+  
+  
+  obs_df_predict <- full_data %>% 
+    filter(r_year == ynext) %>% 
+    left_join(.,obs_df,
+              by = "ObsN") %>% 
+    mutate(observer = ifelse(!is.na(observer),observer,0))
+  
+  stan_data[["route_pred"]] <- obs_df_predict$routeF
+  stan_data[["count_pred"]] <- obs_df_predict$count
+  stan_data[["firstyr_pred"]] <- obs_df_predict$firstyr
+  stan_data[["observer_pred"]] <- obs_df_predict$observer
+  stan_data[["ncounts_pred"]] <- length(obs_df_predict$count)
+  
+  
+  mod.file = paste0("models/slope",spp,"route_NB_CV.stan")
+  
+  ## compile model
+  slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
+  
+  
+
+  slope_stanfit <- slope_model$sample(
+    data=stan_data,
+    refresh=400,
+    chains=3, iter_sampling=1000,
+    iter_warmup=1000,
+    parallel_chains = 3,
+    #pars = parms,
+    adapt_delta = 0.8,
+    max_treedepth = 10,
+    seed = 123)
+  
+
+
+  
+
+  
+  log_lik_samples_full <- posterior_samples(fit = slope_stanfit,
+                                            parm = "log_lik",
+                                            dims = "i") 
+  
+  log_lik_samples <- log_lik_samples_full %>% 
+    posterior_sums(.,quantiles = NULL,dims = "i") 
+  names(log_lik_samples) <- paste0("log_lik_",names(log_lik_samples))
+  
+  
+  E_pred_samples_full <- posterior_samples(fit = slope_stanfit,
+                                           parm = "E_pred",
+                                           dims = "i") 
+  
+  E_pred_samples <- E_pred_samples_full %>% 
+    posterior_sums(.,quantiles = NULL,dims = "i") 
+  names(E_pred_samples) <- paste0("E_pred_",names(E_pred_samples))
+  
+  
+  obs_df_predict_out <- bind_cols(obs_df_predict,log_lik_samples)
+  obs_df_predict_out <- bind_cols(obs_df_predict_out,E_pred_samples)
+  obs_df_predict_out$species <- species
+  obs_df_predict_out$model <- sppn
+  obs_df_predict_out$base <- out_base
+  
+  
+  
+  predictions_save <- bind_rows(predictions_save,obs_df_predict_out)
+  
+
+  print(paste("Finished",sppn,ynext))
+  
+  
+  saveRDS(predictions_save,file = paste0("output/",species_f,spp,"_pred_save.rds"))
+  
+  
+}
+  
+  
+ 
+
+
+
+
+}
+  
+}#end species loop
