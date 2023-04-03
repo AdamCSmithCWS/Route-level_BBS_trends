@@ -11,6 +11,10 @@ The model is written in Stan. It is based on the [bbsBayes](https://github.com/B
 
 The project includes comparing the predictive accuracy of different approaches to a route-level trends. Preliminary results suggest that the iCAR formulation outperforms a non-spatial approach that estimates a route-level trends as a random effect, as well as the BYM iCAR that includes both the iCAR structure and the route-level random effects. The iCAR seems to also out-perform a Gaussian Process (GP) approach to the spatial component, and additionaly the GP models require > 1 order of magnitude more computational time. 
 
+## Interpretation of trends
+Trends from this model represent log-linear slopes fit to the time-series of counts on a given BBS route. The model estimates the route-specific rate of change in counts for a given species, while accounting for the mean counts by the different observer(s) on the route, the start-up effect for each observers first year on a given BBS route, the mean counts at each route for an average observer, the spatial neighbourhood of each BBS route (i.e., the mean abundance for the species and the rate of change in abundance is a function of the counts on that route as well as the mean counts on routes surrounding it).  
+The trend at a given route may not closely match the observed counts over time, if that route has had multiple observers over the time-series, the surrounding routes have a strong and consistent pattern of change (trends), and the species data support a relatively strong influence of neighbouring regions on trend and abundance.
+
 ## Acknowledgments and sources
 
 I've relied strongly on elements from these two excellent case studies in Stan:
