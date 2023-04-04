@@ -22,7 +22,7 @@ species_list = c("Baird's Sparrow",
 spp <- "_cv_"
 
 spans <- data.frame(ly = c(2021), #last year of the time-span
-                    fy = c(2001)) # first year of the time-span
+                    fy = c(2007)) # first year of the time-span
 
 
 
@@ -36,7 +36,7 @@ for(species in species_list){
 # CROSS-VALIDATION loop through the annual re-fitting --------------------------------------
 
 
-for(sppn in c("iCAR","BYM","nonspatial")){
+for(sppn in c("GP")){
   
   ii <- 1
   firstYear <- spans[ii,"fy"]
@@ -61,7 +61,7 @@ for(sppn in c("iCAR","BYM","nonspatial")){
   
 
 for(ynext in (base_year+1):lastYear){
-  
+  if(ynext == 2020){next} #there are no BBS data in 2020 to predict
   out_base <- paste0(species_f,spp,firstYear,"_",ynext,"_CV")
   
   sp_file <- paste0(output_dir,"/",out_base,".RData")

@@ -41,14 +41,9 @@ model = "slope"
 
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = c("Dickcissel",
-                 "Chestnut-collared Longspur",
-                 "Thick-billed Longspur",
-                 "Eastern Meadowlark",
-                 "Western Meadowlark",
-                 "Savannah Sparrow")
-
-
+species_list = c("Baird's Sparrow",
+                 "Black-throated Sparrow",
+                 "Cassin's Sparrow")
 
 
 strat_data <- bbsBayes::stratify(by = strat)
@@ -57,8 +52,9 @@ strat_data <- bbsBayes::stratify(by = strat)
 
 spp <- "_base_"
 
-spans <- data.frame(ly = c(2021), #last year of the time-span
-                    fy = c(2001)) # first year of the time-span
+firstYear <- 2006
+lastYear <- 2021
+# SPECIES LOOP ------------------------------------------------------------
 
 # SPECIES LOOP ------------------------------------------------------------
 
@@ -77,11 +73,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
 
 
 
-#for(ii in 1:nrow(spans)){
-ii <- 1
-firstYear <- spans[ii,"fy"]
-  lastYear <- spans[ii,"ly"]
-  
+
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
@@ -220,8 +212,9 @@ car_stan_dat <- neighbours_define_voronoi(real_point_map = route_map,
                                   strata_map = realized_strata_map)
 
 
-#print(car_stan_dat$map)
-
+pdf(paste0("data/maps/route_map_",firstYear,"-",lastYear,"_",species_f,".pdf"))
+print(car_stan_dat$map)
+dev.off()
 
 
 # set up cross-validation folds -------------------------------------------

@@ -3,38 +3,17 @@
 ## 
 #setwd("C:/GitHub/iCAR_route_2021")
 setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
-
 library(bbsBayes)
 library(tidyverse)
 library(cmdstanr)
-library(sf)
+library(patchwork)
 
-source("functions/neighbours_define.R") ## function to define neighbourhood relationships
-source("functions/prepare-data-alt.R") ## small alteration of the bbsBayes function
-## above source() call over-writes the bbsBayes prepare_data() function
-source("functions/get_basemap_function.R") ## loads one of the bbsBayes strata maps
 source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
 
 
 
 output_dir <- "output"
 
-# 
-# if(!dir.exists("Figures")){
-#   dir.create("Figures")
-# }
-# if(!dir.exists("data/maps/")){
-#   if(!dir.exists("data/")){
-#     dir.create("data/")
-#   }
-#   dir.create("data/maps/")
-# }
-# if(!dir.exists(output_dir)){
-#   dir.create(output_dir)
-# }
-# if(!dir.exists("trends")){
-#   dir.create("trends")
-# }
 
 
 # load and stratify CASW data ---------------------------------------------
@@ -44,45 +23,36 @@ model = "slope"
 
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = c("Dickcissel",
-                 "Chestnut-collared Longspur",
-                 "Thick-billed Longspur",
-                 "Eastern Meadowlark",
-                 "Western Meadowlark",
-                 "Savannah Sparrow")
+species_list = c("Baird's Sparrow",
+                 "Black-throated Sparrow",
+                 "Cassin's Sparrow")
 
 
 # these two can be set to FALSE if it makes sense just to fit the models and store the model output from Stan
 # e.g., if it's easier to run the models and then to produce maps and trends after the fact
-produce_trends <- TRUE
-produce_maps <- TRUE # this is only relevant if produce_trends == TRUE
-
-
-strat_data <- bbsBayes::stratify(by = strat)
+produce_trends <- FALSE
+produce_maps <- FALSE # this is only relevant if produce_trends == TRUE
 
 
 
-spp <- "_nonspatial_"
 
-spans <- data.frame(ly = c(2021), #last year of the time-span
-                    fy = c(2001)) # first year of the time-span
 
+firstYear <- 2006
+lastYear <- 2021
 # SPECIES LOOP ------------------------------------------------------------
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-#for(species in species_list){
-species <- species_list[2]
 
+for(species in species_list){
+#species <- species_list[2]
 
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
 
 
-#for(ii in 1:nrow(spans)){
-ii <- 1
-firstYear <- spans[ii,"fy"]
-  lastYear <- spans[ii,"ly"]
+
+  spp <- "_GP_"
   
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
@@ -91,81 +61,59 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_stan_data.RData")
 
-
-
-
-
 load(sp_data_file)
+
+
+units(dist_matrix_km) <- NULL
+
+
+
+stan_data[["distances"]] = dist_matrix_km
 
 stan_data[["N_edges"]] <- NULL
 stan_data[["node1"]] <- NULL
 stan_data[["node2"]] <- NULL
 
-mod.file = "models/slope_nonspatial_route_NB.stan"
-# 
-# init_def <- function(){ list(alpha_raw = rnorm(stan_data$nroutes,0,0.1),
-#                              sdalpha = runif(1,0.01,0.1),
-#                              ALPHA = 0,
-#                              BETA = 0,
-#                              eta = 0,
-#                              obs_raw = rnorm(stan_data$nobservers,0,0.1),
-#                              sdnoise = 0.2,
-#                              sdobs = 0.1,
-#                              #sdbeta_rand = runif(1,0.01,0.1),
-#                              #beta_raw_rand = rnorm(stan_data$nroutes,0,0.01),
-#                              sdbeta_space = runif(1,0.01,0.1),
-#                              beta_raw_space = rnorm(stan_data$nroutes,0,0.01))} 
-# 
-# # 
-# #   mod.file = "models/slope_BYM_route_NB.stan"
-# #   
-# #   init_def <- function(){ list(alpha_raw = rnorm(stan_data$nroutes,0,0.1),
-# #                                sdalpha = runif(1,0.01,0.1),
-# #                                ALPHA = 0,
-# #                                BETA = 0,
-# #                                eta = 0,
-# #                                obs_raw = rnorm(stan_data$nobservers,0,0.1),
-# #                                sdnoise = 0.2,
-# #                                sdobs = 0.1,
-# #                                sdbeta_rand = runif(1,0.01,0.1),
-# #                                beta_raw_rand = rnorm(stan_data$nroutes,0,0.01),
-# #                                sdbeta_space = runif(1,0.01,0.1),
-# #                                beta_raw_space = rnorm(stan_data$nroutes,0,0.01))} 
-# 
+
+
+
+
+mod.file = "models/slope_GP_route_NB2.stan"
+
 
 
 slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
 
 stanfit <- slope_model$sample(
   data=stan_data,
-  refresh=200,
-  chains=3, iter_sampling=2000,
-  iter_warmup=2000,
+  refresh=100,
+  chains=4, iter_sampling=1000,
+  iter_warmup=1000,
   parallel_chains = 4,
-  #pars = parms,
   adapt_delta = 0.8,
-  max_treedepth = 14,
-  #seed = 123,
-  #init = init_def,
-  output_dir = output_dir,
-  output_basename = out_base)
+  max_treedepth = 10)
 
 summ <- stanfit$summary()
-print(stanfit$time())
-save(list = c("stanfit","summ"),
-     file = paste0(output_dir,"/",out_base,"_stanfit.RData"))
+ print(stanfit$time())
+# save(list = c("stanfit","summ"),
+#      file = paste0(output_dir,"/",out_base,"_stanfit.RData"))
 
+saveRDS(stanfit,
+        paste0(output_dir,"/",out_base,"_stanfit.rds"))
+
+saveRDS(summ,
+        paste0(output_dir,"/",out_base,"_summ_fit.rds"))
 
 
 # extract trends and abundances -------------------------------------------
 if(produce_trends){
-routes_df <- data.frame(routeF = jags_data$routeF,
-                        route = jags_data$route,
-                        year = jags_data$r_year,
-                        obs = jags_data$obser,
-                        stratum = jags_data$strat_name,
-                        Latitude = jags_data$Latitude,
-                        Longitude = jags_data$Longitude) %>% 
+routes_df <- data.frame(routeF = new_data$routeF,
+                        route = new_data$route,
+                        year = new_data$r_year,
+                        obs = new_data$obser,
+                        stratum = new_data$strat_name,
+                        Latitude = new_data$Latitude,
+                        Longitude = new_data$Longitude) %>% 
   group_by(route,routeF,obs,stratum,Longitude,Latitude) %>%
   summarise(n_yr_obs = n(),
             .groups = "drop") %>% 
@@ -226,7 +174,7 @@ est_table <- inner_join(trends,
 
 #writes a csv file for each species
 write.csv(est_table,
-          paste0("trends/","trends_",out_base,".csv"),
+          paste0("trends/",species_f,"_trends_",firstYear,"-",lastYear,".csv"),
           row.names = FALSE)
 #also appends species results to an all trends file
 # if(file.exists(paste0("trends/","All_trends_",firstYear,"-",lastYear,".csv"))){
@@ -298,7 +246,7 @@ tmap = ggplot(trend_plot_map)+
   coord_sf(xlim = xlms,ylim = ylms)
 
 
-pdf(file = paste0("Figures/",out_base,"_trend_map.pdf"),
+pdf(file = paste0("Figures/",species_f,"_",firstYear,"-",lastYear,"_trend_map.pdf"),
     width = 10,
     height = 8)
 print(tmap)
@@ -307,6 +255,67 @@ dev.off()
 }#end if produce_maps 
 
 }# end if produce_trends
+
+
+}#end species
+
+
+
+
+
+
+trends_bym <- read.csv("trends/trends_Chestnut-collared_longspur_BYM_2001_2021.csv") 
+trends_ns <- read.csv("trends/trends_Chestnut-collared_longspur_nonspatial_2001_2021.csv") 
+
+  trends_gp <- trends %>% 
+  select(route,trend,trend_se) %>% 
+  rename(trend_gp = trend,
+         trend_gp_se = trend_se) %>% 
+    mutate(trend_gp_prec = 1/trend_gp_se^2)
+  
+  trends_ns <- trends_ns %>% 
+    select(route,trend,trend_se) %>% 
+    rename(trend_ns = trend,
+           trend_ns_se = trend_se) %>% 
+    mutate(trend_ns_prec = 1/trend_ns_se^2)
+  
+  
+  trends_both <- trends_bym %>% left_join(.,
+                                          trends_gp,by = "route") %>% 
+    left_join(.,trends_ns,
+              by = "route") %>% 
+    mutate(trend_prec = 1/trend_se^2)
+
+comp <- ggplot(data = trends_both,
+               aes(x = trend_ns,y = trend,
+                   size = trend_ns_prec))+
+  geom_abline(slope = 1,intercept = 0)+
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)+
+  coord_cartesian(xlim = c(-25,20),
+                  ylim = c(-25,20))+
+  geom_point()
+comp
+
+comp2 <- ggplot(data = trends_both,
+               aes(x = trend_ns,y = trend_gp,
+                   size = trend_ns_prec))+
+  geom_abline(slope = 1,intercept = 0)+
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)+
+  coord_cartesian(xlim = c(-25,20),
+                  ylim = c(-25,20))+
+  geom_point()
+comp2
+
+print(comp + comp2)
+
+
+comp2 <- ggplot(data = trends_both,
+               aes(x = trend_se,y = trend_gp_se))+
+  geom_point(aes(colour = Latitude))+
+  geom_abline(slope = 1,intercept = 0)
+comp2
 
 
 }# end spans loop

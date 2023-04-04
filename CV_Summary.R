@@ -1,0 +1,144 @@
+
+setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
+library(tidyverse)
+library(sf)
+source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
+## changes captured in a commit on Nov 20, 2020
+output_dir <- "output"
+
+
+
+strat = "bbs_usgs"
+model = "slope"
+
+## this list should include all of the species that we're interested in for the grasslands project
+species_list = c("Baird's Sparrow",
+                 "Black-throated Sparrow",
+                 "Cassin's Sparrow")
+
+
+
+spans <- data.frame(ly = c(2021), #last year of the time-span
+                    fy = c(2007)) # first year of the time-span
+
+
+
+# Collect the summaries of each species -----------------------------------
+
+
+cv_sum = NULL
+n_obs <- NULL
+
+for(species in species_list){
+  #species <- species_list[2]
+  
+
+  species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
+  
+  
+  
+  #for(ii in 1:nrow(spans)){
+  ii <- 1
+  firstYear <- spans[ii,"fy"]
+  lastYear <- spans[ii,"ly"]
+  
+  base_year <- lastYear - floor((lastYear-firstYear)/2) 
+  
+
+  out_base <- paste0(species_f,"_cv_",firstYear,"_",lastYear)
+  
+  sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_CV_data.RData")
+  
+  
+  load(sp_data_file)
+  
+  for(sppn in c("iCAR","BYM","nonspatial")){
+    
+
+    output_dir <- "output"
+    spp <- paste0("_",sppn,"_")
+    predictions_save <- readRDS(paste0("output/",species_f,spp,"_pred_save.rds")) 
+    
+    cv_sum = bind_rows(cv_sum,predictions_save)
+    
+    
+    
+    
+  }
+  n_obst <- full_data %>% 
+    group_by(route,ObsN) %>% 
+    summarise(n_years = n(),
+              .groups = "keep") %>% 
+    group_by(route) %>% 
+    summarise(sum_n_years = sum(n_years),
+              max_nyears = max(n_years),
+              mean_nyears = mean(n_years),
+              n_obs = n(),
+              .groups = "keep") %>% 
+    mutate(species = species)
+  
+  n_obs <- bind_rows(n_obs,n_obst)
+  
+}
+
+
+
+
+# explore and plot comparison ---------------------------------------------
+
+
+
+
+# point wise differences among models -------------------------------------
+cv_sum$Year <- factor(cv_sum$r_year)
+
+diffs <- cv_sum %>% 
+  select(species,count,Year,r_year,route,observer,E_pred_i,model,log_lik_mean) %>% 
+  pivot_wider(.,names_from = model,
+              values_from = log_lik_mean) %>% 
+  mutate(iCAR_BYM = iCAR - BYM,
+         iCAR_nonspatial = iCAR-nonspatial,
+         BYM_nonspatial = BYM-nonspatial) %>% 
+  left_join(.,n_obs,by = c("route","species"))
+
+cv_sum <- cv_sum %>% 
+  left_join(.,n_obs,by = c("route","species")) %>% 
+  mutate(model = factor(model,levels = c("nonspatial","BYM","iCAR"),
+                        ordered = FALSE),
+         I = paste(species,E_pred_i,sep = "-"))
+
+# save(list = c("diffs","cv_sum"),
+#      file = "data/cv_summary_25_data.RData")
+
+
+lpos = function(x){
+  p = length(which(x > 0))/length(x)
+}
+mndiffs = diffs %>% 
+  group_by(Year,species) %>% 
+  summarise(m_iCAR_BYM = median(iCAR_BYM),
+            m_iCAR_nonspatial = median(iCAR_nonspatial),
+            m_BYM_nonspatial = median(BYM_nonspatial),
+            nbet_iCAR_BYM = lpos(iCAR_BYM),
+            nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
+            nbet_BYM_nonspatial = lpos(BYM_nonspatial))
+mndiffs
+mndiffs = diffs %>% 
+  group_by(species) %>% 
+  summarise(m_iCAR_BYM = median(iCAR_BYM),
+            m_iCAR_nonspatial = median(iCAR_nonspatial),
+            m_BYM_nonspatial = median(BYM_nonspatial),
+            nbet_iCAR_BYM = lpos(iCAR_BYM),
+            nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
+            nbet_BYM_nonspatial = lpos(BYM_nonspatial))
+mndiffs
+
+
+
+
+
+
+
+
+
+

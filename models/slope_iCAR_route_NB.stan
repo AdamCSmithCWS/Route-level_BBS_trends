@@ -32,13 +32,6 @@ data {
   array [N_edges] int<lower=1, upper=nroutes> node2;  // and node1[i] < node2[i]
 
 
-  int<lower=0,upper=1> calc_CV; //indicator if CV should be calculated (CrossValidation = 1, no CV = 0)
-  // CV folds - if calc_CV == 1 then the following values define the training and test sets
-  int<lower=1, upper=n_counts> n_train; //
-  int<lower=1, upper=n_counts> n_test; //
-
-
-
 
 }
 
