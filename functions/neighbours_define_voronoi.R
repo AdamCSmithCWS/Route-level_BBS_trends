@@ -7,8 +7,9 @@ neighbours_define_voronoi <- function(real_point_map = realized_route_map, #sf m
                               plot_file = "_route_maps",
                               save_plot_data = FALSE,
                               strata_map = NULL,
-                              strat_indicator = "strat",
-                              lab_size = 3){
+                              strat_indicator = "routeF",
+                              lab_size = 3,
+                              concavity = 0.9){
   
   require(spdep)
   require(sf)
@@ -55,7 +56,7 @@ neighbours_define_voronoi <- function(real_point_map = realized_route_map, #sf m
   
   #concave hull of route locations for clipping later in the function
   cov_hull_fill <- concaveman::concaveman(centres,
-                                          concavity = 2) %>% 
+                                          concavity = concavity) %>% 
     st_buffer(.,50000) #buffer by 50km to ensure all of route is included 
  
   

@@ -18,8 +18,10 @@ species_list = c("Baird's Sparrow",
 
 
 
-spans <- data.frame(ly = c(2021), #last year of the time-span
-                    fy = c(2007)) # first year of the time-span
+
+firstYear <- 2006
+lastYear <- 2021
+base_year <- lastYear - floor((lastYear-firstYear)/2) 
 
 
 
@@ -37,13 +39,8 @@ for(species in species_list){
   
   
   
-  #for(ii in 1:nrow(spans)){
-  ii <- 1
-  firstYear <- spans[ii,"fy"]
-  lastYear <- spans[ii,"ly"]
-  
-  base_year <- lastYear - floor((lastYear-firstYear)/2) 
-  
+
+ 
 
   out_base <- paste0(species_f,"_cv_",firstYear,"_",lastYear)
   
@@ -52,7 +49,7 @@ for(species in species_list){
   
   load(sp_data_file)
   
-  for(sppn in c("iCAR","BYM","nonspatial")){
+  for(sppn in c("iCAR","BYM","nonspatial","GP")){
     
 
     output_dir <- "output"
@@ -92,18 +89,25 @@ for(species in species_list){
 # point wise differences among models -------------------------------------
 cv_sum$Year <- factor(cv_sum$r_year)
 
+simpl_sum <- cv_sum %>% 
+  group_by(species,model) %>% 
+  summarise(mean = mean(log_lik_mean),
+            meanp = mean(E_pred_mean))
+
 diffs <- cv_sum %>% 
-  select(species,count,Year,r_year,route,observer,E_pred_i,model,log_lik_mean) %>% 
+  select(species,count,Year,r_year,route,observer,model,log_lik_mean) %>% 
   pivot_wider(.,names_from = model,
-              values_from = log_lik_mean) %>% 
+              values_from = c(log_lik_mean))  %>% 
   mutate(iCAR_BYM = iCAR - BYM,
+         iCAR_GP = iCAR - GP,
          iCAR_nonspatial = iCAR-nonspatial,
-         BYM_nonspatial = BYM-nonspatial) %>% 
+         BYM_nonspatial = BYM-nonspatial,
+         GP_nonspatial = GP - nonspatial) %>% 
   left_join(.,n_obs,by = c("route","species"))
 
 cv_sum <- cv_sum %>% 
   left_join(.,n_obs,by = c("route","species")) %>% 
-  mutate(model = factor(model,levels = c("nonspatial","BYM","iCAR"),
+  mutate(model = factor(model,levels = c("nonspatial","BYM","iCAR","GP"),
                         ordered = FALSE),
          I = paste(species,E_pred_i,sep = "-"))
 
@@ -117,20 +121,28 @@ lpos = function(x){
 mndiffs = diffs %>% 
   group_by(Year,species) %>% 
   summarise(m_iCAR_BYM = median(iCAR_BYM),
+            m_iCAR_GP = median(iCAR_GP),
             m_iCAR_nonspatial = median(iCAR_nonspatial),
             m_BYM_nonspatial = median(BYM_nonspatial),
+            m_GP_nonspatial = median(GP_nonspatial),
             nbet_iCAR_BYM = lpos(iCAR_BYM),
+            nbet_iCAR_GP = lpos(iCAR_GP),
             nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
-            nbet_BYM_nonspatial = lpos(BYM_nonspatial))
+            nbet_BYM_nonspatial = lpos(BYM_nonspatial),
+            nbet_GP_nonspatial = lpos(GP_nonspatial))
 mndiffs
 mndiffs = diffs %>% 
   group_by(species) %>% 
   summarise(m_iCAR_BYM = median(iCAR_BYM),
+            m_iCAR_GP = median(iCAR_GP),
             m_iCAR_nonspatial = median(iCAR_nonspatial),
             m_BYM_nonspatial = median(BYM_nonspatial),
+            m_GP_nonspatial = median(GP_nonspatial),
             nbet_iCAR_BYM = lpos(iCAR_BYM),
+            nbet_iCAR_GP = lpos(iCAR_GP),
             nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
-            nbet_BYM_nonspatial = lpos(BYM_nonspatial))
+            nbet_BYM_nonspatial = lpos(BYM_nonspatial),
+            nbet_GP_nonspatial = lpos(GP_nonspatial))
 mndiffs
 
 

@@ -3,26 +3,22 @@
 // random effect, stratum-level trends
 // and no random year-effects - slope only
 
-// GP function - courtesy of rethinking  
+// GP function - courtesy of https://rpubs.com/NickClark47/stan_geostatistical 
 functions {
   // Function to compute the squared exponential covariance matrix and
-  // cholesky deomposition
-    matrix cov_GPL2(matrix x, real sq_alpha, real sq_rho, real delta) {
-        int N = dims(x)[1];
-        matrix[N, N] K;
-        matrix[N,N] L_K;
-        for (i in 1:(N-1)) {
-          K[i, i] = sq_alpha + delta;
-          for (j in (i + 1):N) {
-            K[i, j] = sq_alpha * exp(-sq_rho * square(x[i,j]) );
-            K[j, i] = K[i, j];
-          }
-        }
-        K[N, N] = sq_alpha + delta;
-        
-        L_K = cholesky_decompose(K);
-        return L_K;
-    }
+  // take the cholesky decomposition for more efficient computation
+  // of multivariate normal realisations
+  matrix L_cov_exp_quad_dis(
+          int N,
+          matrix distances,
+                real alpha,
+                real rho,
+                real delta) {
+    matrix[N, N] K;
+    K = square(alpha) * exp(-0.5 * (square(distances / rho))) +
+            diag_matrix(rep_vector(delta, N));
+    return cholesky_decompose(K); //this explodes the computational requirements for large N (n^3)
+  }
 }
 data {
   int<lower=1> nroutes;
@@ -41,7 +37,6 @@ data {
  // spatial distance matrix information
  
   matrix[nroutes, nroutes] distances;   // distance matrix (in km/1000)
-
 
 
 }
@@ -65,10 +60,10 @@ parameters {
  //real<lower=1> nu;  //optional heavy-tail df for t-distribution
   real<lower=0> sdobs;    // sd of observer effects
   //real<lower=0> sdbeta_space;    // sd of slopes 
-  real<lower=0> gp_sq_rho_beta; // slope spatial  GP
-  real<lower=0> gp_sq_alpha_beta;
-  real<lower=0> gp_sq_rho_alpha; // intercepts spatial GP
-  real<lower=0> gp_sq_alpha_alpha;
+  real<lower=0> gp_rho_beta; // slope spatial  GP
+  real<lower=0> gp_alpha_beta;
+  real<lower=0> gp_rho_alpha; // intercepts spatial GP
+  real<lower=0> gp_alpha_alpha;
 
   vector[nroutes] gp_eta_beta;
   vector[nroutes] gp_eta_alpha;
@@ -78,10 +73,10 @@ parameters {
 transformed parameters {
   //this is the aspect of the GP that explodes the memory requirements nroutes^2 *2
   // Calculate the latent Gaussian process function
-  matrix[nroutes, nroutes] beta_LK = cov_GPL2(distances, gp_sq_alpha_beta, gp_sq_rho_beta, delta);
+  matrix[nroutes, nroutes] beta_LK = L_cov_exp_quad_dis(nroutes, distances, gp_alpha_beta, gp_rho_beta, delta);
   vector[nroutes] beta_space = beta_LK * gp_eta_beta;
 
-  matrix[nroutes, nroutes] alpha_LK = cov_GPL2(distances, gp_sq_alpha_alpha, gp_sq_rho_alpha, delta);
+  matrix[nroutes, nroutes] alpha_LK = L_cov_exp_quad_dis(nroutes, distances, gp_alpha_alpha, gp_rho_alpha, delta);
   vector[nroutes] alpha_space = alpha_LK * gp_eta_alpha;
 
    vector[nroutes] beta = beta_space + BETA;
@@ -99,16 +94,16 @@ model {
   // Prior for the GP length scale (i.e. spatial decay)
   // very small values will be inidentifiable, so an informative prior
   // is a must
-  // gp_sq_rho_beta ~ normal(2, 2.5);
-  // gp_sq_rho_alpha ~ normal(2, 2.5);
-  gp_sq_rho_beta ~ inv_gamma(5,5);
-  gp_sq_rho_alpha ~ inv_gamma(5,5);
+  // gp_rho_beta ~ normal(2, 2.5);
+  // gp_rho_alpha ~ normal(2, 2.5);
+  gp_rho_beta ~ inv_gamma(5,5);
+  gp_rho_alpha ~ inv_gamma(5,5);
   // Prior for the GP covariance magnitude
-  gp_sq_alpha_beta ~ student_t(5,0,1);
-  gp_sq_alpha_alpha ~ student_t(5,0,1);
+  gp_alpha_beta ~ student_t(5,0,3);
+  gp_alpha_alpha ~ student_t(5,0,3);
   // Multiplier for non-centred GP parameterisation
   gp_eta_beta ~ normal(0,0.1);
-  gp_eta_alpha ~ student_t(8,0,1);
+  gp_eta_alpha ~ student_t(5,0,3);
   
   sdnoise ~ student_t(3,0,1); //prior on scale of extra Poisson log-normal variance
 
@@ -119,7 +114,7 @@ model {
 
  
   BETA ~ normal(0,0.2);// prior on fixed effect mean slope
-  ALPHA ~ student_t(3,0,1);;// prior on fixed effect mean intercept
+  ALPHA ~ student_t(10,0,3);;// prior on fixed effect mean intercept
   eta ~ std_normal();// prior on first-year observer effect
   
   

@@ -41,9 +41,18 @@ model = "slope"
 
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = c("Baird's Sparrow",
+species_list <- c("Baird's Sparrow",
                  "Black-throated Sparrow",
-                 "Cassin's Sparrow")
+                 "Cassin's Sparrow",
+                 "Golden-winged Warbler",
+                 "Canyon Towhee",
+                 "Lark Bunting",
+                 "Phainopepla",
+                 "Curve-billed Thrasher",
+                 "Varied Thrush",
+                 "Western Bluebird")
+
+saveRDS(species_list,"data/species_to_include.rds")
 
 
 strat_data <- bbsBayes::stratify(by = strat)
@@ -209,7 +218,10 @@ route_map = st_transform(route_map,crs = st_crs(strata_map))
 car_stan_dat <- neighbours_define_voronoi(real_point_map = route_map,
                                   species = species,
                                   strat_indicator = "routeF",
-                                  strata_map = realized_strata_map)
+                                  strata_map = realized_strata_map,
+                                  concavity = 1)#concavity argument from concaveman()
+	
+## a relative measure of concavity. 1 results in a relatively detailed shape, Infinity results in a convex hull.
 
 
 pdf(paste0("data/maps/route_map_",firstYear,"-",lastYear,"_",species_f,".pdf"))

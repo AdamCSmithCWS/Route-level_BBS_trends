@@ -16,14 +16,22 @@ model = "slope"
 ## this list should include all of the species that we're interested in for the grasslands project
 species_list = c("Baird's Sparrow",
                  "Black-throated Sparrow",
-                 "Cassin's Sparrow")
+                 "Cassin's Sparrow",
+                 "Golden-winged Warbler",
+                 "Canyon Towhee",
+                 "Lark Bunting",
+                 "Phainopepla",
+                 "Curve-billed Thrasher",
+                 "Varied Thrush",
+                 "Western Bluebird")
 
 
 spp <- "_cv_"
 
-spans <- data.frame(ly = c(2021), #last year of the time-span
-                    fy = c(2007)) # first year of the time-span
 
+firstYear <- 2006
+lastYear <- 2021
+base_year <- lastYear - floor((lastYear-firstYear)/2) 
 
 
 
@@ -38,12 +46,8 @@ for(species in species_list){
 
 for(sppn in c("GP")){
   
-  ii <- 1
-  firstYear <- spans[ii,"fy"]
-  lastYear <- spans[ii,"ly"]
-  
-  base_year <- lastYear - floor((lastYear-firstYear)/2) 
-  
+
+
   spp <- paste0("_",sppn,"_")
   
   out_base_1 <- paste0(species_f,spp,firstYear,"_",lastYear)
@@ -87,11 +91,12 @@ for(ynext in (base_year+1):lastYear){
     select(observer,ObsN) %>% 
     distinct()
 
-  if(spp != "_nonspatial_"){
+  if(spp == "_GP_"){
+    units(dist_matrix_km) <- NULL
     
-  stan_data[["N_edges"]] = car_stan_dat$N_edges
-  stan_data[["node1"]] = car_stan_dat$node1
-  stan_data[["node2"]] = car_stan_dat$node2
+  stan_data[["distances"]] <- dist_matrix_km
+  
+  
   }  
   
   # setting up the prediction data ------------------------------------------
@@ -125,8 +130,7 @@ for(ynext in (base_year+1):lastYear){
     parallel_chains = 3,
     #pars = parms,
     adapt_delta = 0.8,
-    max_treedepth = 10,
-    seed = 123)
+    max_treedepth = 10)
   
 
 

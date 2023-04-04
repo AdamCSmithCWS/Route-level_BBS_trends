@@ -47,9 +47,7 @@ strat_data <- bbsBayes::stratify(by = strat)
 
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = c("Baird's Sparrow",
-                 "Black-throated Sparrow",
-                 "Cassin's Sparrow")
+species_list <- readRDS("data/species_to_include.rds")
 
 
 spp <- "_cv_"
