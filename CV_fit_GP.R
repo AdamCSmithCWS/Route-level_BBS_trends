@@ -14,16 +14,8 @@ strat = "bbs_usgs"
 model = "slope"
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = c("Baird's Sparrow",
-                 "Black-throated Sparrow",
-                 "Cassin's Sparrow",
-                 "Golden-winged Warbler",
-                 "Canyon Towhee",
-                 "Lark Bunting",
-                 "Phainopepla",
-                 "Curve-billed Thrasher",
-                 "Varied Thrush",
-                 "Western Bluebird")
+species_list <- readRDS("data/species_to_include.rds")
+
 
 
 spp <- "_cv_"
@@ -31,12 +23,14 @@ spp <- "_cv_"
 
 firstYear <- 2006
 lastYear <- 2021
-base_year <- lastYear - floor((lastYear-firstYear)/2) 
+base_year <- firstYear + floor((lastYear-firstYear)/2) 
 
+j <- 1
+nsplit = 8
+for(species in species_list[c((1:nsplit)+((j*nsplit)-nsplit))]){
 
-
-for(species in species_list){
-
+  #species <- species_list[4]
+  
   species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
   
   
@@ -49,6 +43,11 @@ for(sppn in c("GP")){
 
 
   spp <- paste0("_",sppn,"_")
+  
+  if(file.exists(paste0("output/",species_f,spp,"_pred_save.rds"))){
+    next
+  }
+  
   
   out_base_1 <- paste0(species_f,spp,firstYear,"_",lastYear)
   
@@ -63,7 +62,7 @@ for(sppn in c("GP")){
 
   predictions_save <- NULL
   
-
+ 
 for(ynext in (base_year+1):lastYear){
   if(ynext == 2020){next} #there are no BBS data in 2020 to predict
   out_base <- paste0(species_f,spp,firstYear,"_",ynext,"_CV")

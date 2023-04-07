@@ -1,6 +1,4 @@
-## Fitting the BYM model to 1995 - 2021 BBS data
-## script currently written to fit the model then save the Stan output to a directory
-## 
+
 #setwd("C:/GitHub/iCAR_route_2021")
 setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 library(bbsBayes)
@@ -16,22 +14,6 @@ source("functions/posterior_summary_functions.R") ## functions similar to tidyba
 
 output_dir <- "output"
 
-# 
-# if(!dir.exists("Figures")){
-#   dir.create("Figures")
-# }
-# if(!dir.exists("data/maps/")){
-#   if(!dir.exists("data/")){
-#     dir.create("data/")
-#   }
-#   dir.create("data/maps/")
-# }
-# if(!dir.exists(output_dir)){
-#   dir.create(output_dir)
-# }
-# if(!dir.exists("trends")){
-#   dir.create("trends")
-# }
 
 
 # load and stratify CASW data ---------------------------------------------
@@ -60,7 +42,7 @@ lastYear <- 2021
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list){
+for(species in species_list[-c(1:48)]){
 #species <- species_list[2]
 
 

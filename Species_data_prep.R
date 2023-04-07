@@ -39,30 +39,53 @@ strat = "bbs_usgs"
 model = "slope"
 
 
+firstYear <- 2006
+lastYear <- 2021
 
-## this list should include all of the species that we're interested in for the grasslands project
-species_list <- c("Baird's Sparrow",
-                 "Black-throated Sparrow",
-                 "Cassin's Sparrow",
-                 "Golden-winged Warbler",
-                 "Canyon Towhee",
-                 "Lark Bunting",
-                 "Phainopepla",
-                 "Curve-billed Thrasher",
-                 "Varied Thrush",
-                 "Western Bluebird")
-
-saveRDS(species_list,"data/species_to_include.rds")
 
 
 strat_data <- bbsBayes::stratify(by = strat)
 
+nrecs_sp <- strat_data$bird_strat %>% 
+  filter(Year > firstYear) %>% 
+  group_by(AOU) %>% 
+  summarise(num_counts = n(),
+            num_routes = length(unique(rt.uni))) %>% 
+  left_join(.,strat_data$species_strat,by = c("AOU" = "sp.bbs")) %>% 
+  filter(num_counts > 200,
+         !grepl("unid",english)) %>% 
+  arrange(num_counts)
+
+#nrecs_sp <- readRDS("data/nobs_by_sp.rds")
+
+sp_small_range <- nrecs_sp %>% 
+  mutate(obs_route = num_counts/num_routes) %>% 
+  filter(num_routes > 125,
+         num_routes < 400,
+         num_counts > 600,
+         obs_route > 4,
+         !grepl("(",english,fixed = TRUE),
+         english != "Black Tern")
+
+
+## this list should include all of the species that we're interested in for the grasslands project
+# species_list <- c("Baird's Sparrow",
+#                   "Black-throated Sparrow",
+#                   "Cassin's Sparrow",
+#                   "Golden-winged Warbler",
+#                   "Canyon Towhee",
+#                   "Lark Bunting",
+#                   "Phainopepla",
+#                   "Curve-billed Thrasher",
+#                   "Varied Thrush",
+#                   "Western Bluebird")
+
+species_list <- as.character(sp_small_range$english)
+saveRDS(species_list,"data/species_to_include.rds")
 
 
 spp <- "_base_"
 
-firstYear <- 2006
-lastYear <- 2021
 # SPECIES LOOP ------------------------------------------------------------
 
 # SPECIES LOOP ------------------------------------------------------------

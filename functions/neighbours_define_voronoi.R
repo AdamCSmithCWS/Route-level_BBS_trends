@@ -1,7 +1,7 @@
 # voronoi polygon neighbourhood function ----------------------------------
 
 
-neighbours_define_voronoi <- function(real_point_map = realized_route_map, #sf map of strata
+neighbours_define_voronoi <- function(real_point_map = route_map, #sf map of strata
                               species = "",
                               plot_dir = "",
                               plot_file = "_route_maps",
@@ -9,7 +9,7 @@ neighbours_define_voronoi <- function(real_point_map = realized_route_map, #sf m
                               strata_map = NULL,
                               strat_indicator = "routeF",
                               lab_size = 3,
-                              concavity = 0.9){
+                              concavity = 1){
   
   require(spdep)
   require(sf)
@@ -48,7 +48,9 @@ neighbours_define_voronoi <- function(real_point_map = realized_route_map, #sf m
                                                             replacement = "strat_lab",
                                                             .x, fixed = TRUE)) %>% 
     group_by(strat_lab) %>% 
-    summarise() 
+    summarise() %>% 
+    arrange(strat_lab)
+  
   
   centres <- suppressWarnings(st_centroid(real_point_map))
   
@@ -60,6 +62,10 @@ neighbours_define_voronoi <- function(real_point_map = realized_route_map, #sf m
     st_buffer(.,50000) #buffer by 50km to ensure all of route is included 
  
   
+  # miss <- route_map %>% 
+  #   st_join(.,cov_hull_fill,
+  #           join = st_covered_by,
+  #           left_join = FALSE)
 
     # Voronoi polygons from centres -----------------------------------
     box <- st_as_sfc(st_bbox(centres))

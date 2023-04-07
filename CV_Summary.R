@@ -2,6 +2,8 @@
 setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 library(tidyverse)
 library(sf)
+library(patchwork)
+
 source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
 ## changes captured in a commit on Nov 20, 2020
 output_dir <- "output"
@@ -12,9 +14,7 @@ strat = "bbs_usgs"
 model = "slope"
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list = c("Baird's Sparrow",
-                 "Black-throated Sparrow",
-                 "Cassin's Sparrow")
+species_list <- readRDS("data/species_to_include.rds")
 
 
 
@@ -92,7 +92,20 @@ cv_sum$Year <- factor(cv_sum$r_year)
 simpl_sum <- cv_sum %>% 
   group_by(species,model) %>% 
   summarise(mean = mean(log_lik_mean),
-            meanp = mean(E_pred_mean))
+            meanp = mean(E_pred_mean),
+            se = sd(log_lik_mean)/sqrt(n()),
+            lci = mean - se*1.96,
+            uci = mean + se*1.96)
+
+sum_plot <- ggplot(simpl_sum,
+                   aes(x = species,y = mean, colour = model))+
+  geom_pointrange(aes(ymin = lci,ymax = uci),
+                  position = position_dodge(width = 0.8))+
+  coord_flip()+
+  scale_colour_viridis_d()
+sum_plot
+
+
 
 diffs <- cv_sum %>% 
   select(species,count,Year,r_year,route,observer,model,log_lik_mean) %>% 
@@ -131,6 +144,35 @@ mndiffs = diffs %>%
             nbet_BYM_nonspatial = lpos(BYM_nonspatial),
             nbet_GP_nonspatial = lpos(GP_nonspatial))
 mndiffs
+
+y_diffs_bym <- ggplot(data = mndiffs,
+                  aes(y = m_iCAR_BYM,x = species,
+                      colour = as.integer(Year)))+
+  geom_point()+
+  scale_colour_viridis_c()+
+  geom_hline(yintercept = 0)+
+  #coord_cartesian()+
+  coord_flip(ylim = c(-0.1,0.1))
+y_diffs_icar <- ggplot(data = mndiffs,
+                      aes(y = m_iCAR_nonspatial,x = species,
+                          colour = as.integer(Year)))+
+  geom_point()+
+  scale_colour_viridis_c()+
+  geom_hline(yintercept = 0)+
+  #coord_cartesian()+
+  coord_flip(ylim = c(-0.1,0.1))
+y_diffs_gp <- ggplot(data = mndiffs,
+                       aes(y = m_iCAR_GP,x = species,
+                           colour = as.integer(Year)))+
+  geom_point()+
+  scale_colour_viridis_c()+
+  geom_hline(yintercept = 0)+
+  #coord_cartesian()+
+  coord_flip(ylim = c(-0.1,0.1))
+
+y_diffs_gp + y_diffs_icar + y_diffs_bym + plot_layout(guides = "collect")
+
+
 mndiffs = diffs %>% 
   group_by(species) %>% 
   summarise(m_iCAR_BYM = median(iCAR_BYM),

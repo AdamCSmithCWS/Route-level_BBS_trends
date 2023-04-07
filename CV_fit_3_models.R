@@ -40,6 +40,12 @@ for(sppn in c("iCAR","BYM","nonspatial")){
  
   spp <- paste0("_",sppn,"_")
   
+  
+  if(file.exists(paste0("output/",species_f,spp,"_pred_save.rds"))){
+    next
+  }
+  
+  
   out_base_1 <- paste0(species_f,spp,firstYear,"_",lastYear)
   
   
