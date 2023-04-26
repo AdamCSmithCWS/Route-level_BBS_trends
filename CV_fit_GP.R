@@ -14,7 +14,7 @@ strat = "bbs_usgs"
 model = "slope"
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list <- readRDS("data/species_to_include.rds")
+species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
 
 
 

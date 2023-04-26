@@ -29,7 +29,9 @@ strat_data <- bbsBayes::stratify(by = strat)
 
 
 ## this list should include all of the species that we're interested in for the grasslands project
-species_list <- readRDS("data/species_to_include.rds")
+species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
+
+species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
 
 
 spp <- "_cv_"
@@ -42,7 +44,7 @@ lastYear <- 2021
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list[-c(1:48)]){
+for(species in species_list_broad){
 #species <- species_list[2]
 
 

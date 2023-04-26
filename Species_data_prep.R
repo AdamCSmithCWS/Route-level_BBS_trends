@@ -1,6 +1,4 @@
-## Fitting the BYM model to 1995 - 2021 BBS data
-## script currently written to fit the model then save the Stan output to a directory
-## 
+## Prepare data for full model fits
 #setwd("C:/GitHub/iCAR_route_2021")
 setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 library(bbsBayes)
@@ -81,7 +79,16 @@ sp_small_range <- nrecs_sp %>%
 #                   "Western Bluebird")
 
 species_list <- as.character(sp_small_range$english)
-saveRDS(species_list,"data/species_to_include.rds")
+saveRDS(species_list,"data/species_to_include_4_model_comparison.rds")
+
+
+sp_notsmall_range <- nrecs_sp %>% 
+  mutate(obs_route = num_counts/num_routes) %>% 
+  filter(num_routes >= 400,
+         !grepl("(",english,fixed = TRUE))
+
+species_list_broad <- as.character(sp_notsmall_range$english)
+saveRDS(species_list_broad,"data/species_to_include_2_model_comparison.rds")
 
 
 spp <- "_base_"
@@ -92,7 +99,7 @@ spp <- "_base_"
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list){
+for(species in species_list_broad){
 #species <- species_list[2]
 
 

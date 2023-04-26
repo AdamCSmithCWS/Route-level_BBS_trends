@@ -56,17 +56,34 @@ neighbours_define_voronoi <- function(real_point_map = route_map, #sf map of str
   
   coords = st_coordinates(centres)
   
+  check_concave <- TRUE # this and the associated while loop are required
+  # because in some rare situations the concaveman function seems to fail
+  # it will exclude one point near the edge. Will submit an issue to the 
+  # package gitHub with reprex, hopefully will get solved.
+  while(check_concave){
   #concave hull of route locations for clipping later in the function
   cov_hull_fill <- concaveman::concaveman(centres,
                                           concavity = concavity) %>% 
-    st_buffer(.,50000) #buffer by 50km to ensure all of route is included 
- 
-  
-  # miss <- route_map %>% 
-  #   st_join(.,cov_hull_fill,
-  #           join = st_covered_by,
-  #           left_join = FALSE)
+    st_buffer(.,50000) %>% #buffer by 50km to ensure all of route is included 
+    mutate(concave = TRUE) 
 
+  miss <- real_point_map %>%
+    st_join(.,cov_hull_fill,
+            join = st_intersects,
+            left_join = TRUE) %>% 
+    filter(is.na(concave))
+check_concave <- ifelse(nrow(miss) > 0,TRUE,FALSE)
+concavity <- concavity+0.5
+  }
+  
+  # tmpp <- ggplot(data = cov_hull_fill)+
+  #   geom_sf()+
+  #   geom_sf(data = real_point_map)+
+  #   geom_sf_text(data = real_point_map,
+  #                aes(label = strat_lab))
+  # tmpp
+  
+  
     # Voronoi polygons from centres -----------------------------------
     box <- st_as_sfc(st_bbox(centres))
 
@@ -91,7 +108,7 @@ neighbours_define_voronoi <- function(real_point_map = route_map, #sf map of str
         st_cast(.,to = "POLYGON")
       
     #clip the voronoi polygons with the strata+concavehull intersection
-      vintj <- suppressWarnings(st_sf(st_cast(st_intersection(v,add_fill2),to = "POLYGON"))) %>% 
+      vintj <- suppressWarnings(st_intersection(v,add_fill2)) %>% 
         group_by(strat_lab) %>% 
         summarise() %>% 
         arrange(.,strat_lab)
