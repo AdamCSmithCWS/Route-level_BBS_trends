@@ -240,7 +240,8 @@ route_map = st_transform(route_map,crs = st_crs(strata_map))
 ## this clipping ensures that routes at the edges of the species range are not able
 ## to be considered neighbours with other very-distant edge-routes and retains
 ## the complex shape of many species distributions (e.g., species with boreal and 
-## mountainous distributions, such as Pileated Woodpecker)
+## mountainous distributions, or forest species that span either
+## side of the great plains such as Pileated Woodpecker)
 ## it also forces a completely connected network of routes. So if some portions of the 
 ## species range are separated by gaps (e.g., intervening BBS strata without any routes)
 ## it forces a neighbourhood connection between the closest pair of routes that would
@@ -249,7 +250,8 @@ car_stan_dat <- neighbours_define_voronoi(real_point_map = route_map,
                                   species = species,
                                   strat_indicator = "routeF",
                                   strata_map = realized_strata_map,
-                                  concavity = 1)#concavity argument from concaveman()
+                                  concavity = 1,
+                                  save_plot_data = TRUE)#concavity argument from concaveman()
 	
 ## a relative measure of concavity. 1 results in a relatively detailed shape, Infinity results in a convex hull.
 
