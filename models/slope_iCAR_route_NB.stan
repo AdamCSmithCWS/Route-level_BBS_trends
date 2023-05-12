@@ -109,7 +109,7 @@ model {
   // sdbeta_space ~ gamma(2,50);//~ normal(0,0.05); //boundary avoiding prior on sd of slope spatial variation w mean = 0.04 and 99% < 0.13
   // sdbeta_rand  ~ gamma(2,50);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
 
-  sdbeta_space ~ student_t(10,0,0.1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope spatial variation w mean = 0.04 and 99% < 0.13
+  sdbeta_space ~ normal(0,0.1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope spatial variation w mean = 0.04 and 99% < 0.13
   //sdbeta_rand  ~ student_t(10,0,1);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
 
   beta_raw_space ~ icar_normal(nroutes, node1, node2);

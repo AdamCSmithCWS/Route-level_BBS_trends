@@ -16,7 +16,9 @@ model = "slope"
 ## this list should include all of the species that we're interested in for the grasslands project
 species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
 
+species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
 
+species_list <- c(species_list,"Blue-headed Vireo")
 
 
 firstYear <- 2006
@@ -154,8 +156,8 @@ diffs <- cv_sum %>%
          BYM_nonspatial = BYM-nonspatial,
          GP_nonspatial = GP - nonspatial) %>% 
   left_join(.,n_obs,by = c("route","species")) %>% 
-  mutate(dist_cat = ifelse(min_distance > 0.1,"Isolated","Close"),
-         dist_cat_mean = ifelse(mean_distance > 0.2,"Isolated","Close"))
+  mutate(dist_cat = ifelse(min_distance > 0.2,"Isolated","Close"),
+         dist_cat_mean = ifelse(mean_distance > 0.1,"Isolated","Close"))
 
 cv_sum <- cv_sum %>% 
   left_join(.,n_obs,by = c("route","species")) %>% 
@@ -167,115 +169,220 @@ cv_sum <- cv_sum %>%
 #      file = "data/cv_summary_25_data.RData")
 
 
+# 
 lpos = function(x){
   p = length(which(x > 0))/length(x)
 }
-mndiffs = diffs %>% 
-  group_by(Year,species) %>% 
-  summarise(m_iCAR_BYM = median(iCAR_BYM),
-            m_iCAR_GP = median(iCAR_GP),
-            m_iCAR_nonspatial = median(iCAR_nonspatial),
-            m_BYM_nonspatial = median(BYM_nonspatial),
-            m_GP_nonspatial = median(GP_nonspatial),
-            nbet_iCAR_BYM = lpos(iCAR_BYM),
-            nbet_iCAR_GP = lpos(iCAR_GP),
-            nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
-            nbet_BYM_nonspatial = lpos(BYM_nonspatial),
-            nbet_GP_nonspatial = lpos(GP_nonspatial),
-            mean_dist = mean(mean_distance)) %>% 
-  mutate(species = fct_reorder(species,mean_dist) )
-mndiffs
+# annual cv summary
+# mndiffs = diffs %>% 
+#   group_by(Year,species) %>% 
+#   summarise(m_iCAR_BYM = mean(iCAR_BYM),
+#             m_iCAR_GP = mean(iCAR_GP),
+#             m_iCAR_nonspatial = mean(iCAR_nonspatial),
+#             m_BYM_nonspatial = mean(BYM_nonspatial),
+#             m_GP_nonspatial = mean(GP_nonspatial),
+#             nbet_iCAR_BYM = lpos(iCAR_BYM),
+#             nbet_iCAR_GP = lpos(iCAR_GP),
+#             nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
+#             nbet_BYM_nonspatial = lpos(BYM_nonspatial),
+#             nbet_GP_nonspatial = lpos(GP_nonspatial),
+#             mean_dist = mean(mean_distance)) %>% 
+#   mutate(species = fct_reorder(species,mean_dist) )
+# mndiffs
+# 
+# y_diffs_bym <- ggplot(data = mndiffs,
+#                   aes(y = m_iCAR_BYM,x = species,
+#                       colour = as.integer(Year)))+
+#   geom_point()+
+#   scale_colour_viridis_c()+
+#   geom_hline(yintercept = 0)+
+#   #coord_cartesian()+
+#   coord_flip(ylim = c(-0.1,0.1))
+# 
+# y_diffs_icar <- ggplot(data = mndiffs,
+#                       aes(y = m_iCAR_nonspatial,x = species,
+#                           colour = as.integer(Year)))+
+#   geom_point()+
+#   scale_colour_viridis_c()+
+#   geom_hline(yintercept = 0)+
+#   #coord_cartesian()+
+#   coord_flip(ylim = c(-0.1,0.1))
+# 
+# y_diffs_gp <- ggplot(data = mndiffs,
+#                        aes(y = m_iCAR_GP,x = species,
+#                            colour = as.integer(Year)))+
+#   geom_point()+
+#   scale_colour_viridis_c()+
+#   geom_hline(yintercept = 0)+
+#   #coord_cartesian()+
+#   coord_flip(ylim = c(-0.1,0.1))
+# 
+# y_diffs_gp2 <- ggplot(data = mndiffs,
+#                      aes(y = m_GP_nonspatial,x = species,
+#                          colour = as.integer(Year)))+
+#   geom_point()+
+#   scale_colour_viridis_c()+
+#   geom_hline(yintercept = 0)+
+#   #coord_cartesian()+
+#   coord_flip(ylim = c(-0.1,0.1))
+# 
+# y_diffs_gp2 + y_diffs_icar + y_diffs_gp + y_diffs_bym + plot_layout(guides = "collect")
 
-y_diffs_bym <- ggplot(data = mndiffs,
-                  aes(y = m_iCAR_BYM,x = species,
-                      colour = as.integer(Year)))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
 
-y_diffs_icar <- ggplot(data = mndiffs,
-                      aes(y = m_iCAR_nonspatial,x = species,
-                          colour = as.integer(Year)))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
-
-y_diffs_gp <- ggplot(data = mndiffs,
-                       aes(y = m_iCAR_GP,x = species,
-                           colour = as.integer(Year)))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
-
-y_diffs_gp2 <- ggplot(data = mndiffs,
-                     aes(y = m_GP_nonspatial,x = species,
-                         colour = as.integer(Year)))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
-
-y_diffs_gp2 + y_diffs_icar + y_diffs_gp + y_diffs_bym + plot_layout(guides = "collect")
-
-
-mndiffs_sp = diffs %>% 
+mndiffs_sp <- diffs %>% 
   group_by(species) %>% 
-  summarise(m_iCAR_BYM = median(iCAR_BYM),
-            m_iCAR_GP = median(iCAR_GP),
-            m_iCAR_nonspatial = median(iCAR_nonspatial),
-            m_BYM_nonspatial = median(BYM_nonspatial),
-            m_GP_nonspatial = median(GP_nonspatial),
+  summarise(m_iCAR_BYM = mean(iCAR_BYM),
+            m_iCAR_GP = mean(iCAR_GP),
+            m_iCAR_nonspatial = mean(iCAR_nonspatial),
+            m_BYM_nonspatial = mean(BYM_nonspatial),
+            m_GP_nonspatial = mean(GP_nonspatial),
+            se_iCAR_BYM = sd(iCAR_BYM)/sqrt(n()),
+            se_iCAR_GP = sd(iCAR_GP)/sqrt(n()),
+            se_iCAR_nonspatial = sd(iCAR_nonspatial)/sqrt(n()),
+            se_BYM_nonspatial = sd(BYM_nonspatial)/sqrt(n()),
+            se_GP_nonspatial = sd(GP_nonspatial)/sqrt(n()),
+            z_iCAR_BYM = mean(iCAR_BYM)/se_iCAR_BYM,
+            z_iCAR_GP = mean(iCAR_GP)/se_iCAR_GP,
+            z_iCAR_nonspatial = mean(iCAR_nonspatial)/se_iCAR_nonspatial,
+            z_BYM_nonspatial = mean(BYM_nonspatial)/se_BYM_nonspatial,
+            z_GP_nonspatial = mean(GP_nonspatial)/se_GP_nonspatial,
+            lci_iCAR_BYM = m_iCAR_BYM - se_iCAR_BYM*1.96,
+            lci_iCAR_GP = m_iCAR_GP - se_iCAR_GP*1.96,
+            lci_iCAR_nonspatial = m_iCAR_nonspatial - se_iCAR_nonspatial*1.96,
+            lci_BYM_nonspatial = m_BYM_nonspatial - se_BYM_nonspatial*1.96,
+            lci_GP_nonspatial = m_GP_nonspatial - se_GP_nonspatial*1.96,
+            uci_iCAR_BYM = m_iCAR_BYM + se_iCAR_BYM*1.96,
+            uci_iCAR_GP = m_iCAR_GP + se_iCAR_GP*1.96,
+            uci_iCAR_nonspatial = m_iCAR_nonspatial + se_iCAR_nonspatial*1.96,
+            uci_BYM_nonspatial = m_BYM_nonspatial + se_BYM_nonspatial*1.96,
+            uci_GP_nonspatial = m_GP_nonspatial + se_GP_nonspatial*1.96,
             nbet_iCAR_BYM = lpos(iCAR_BYM),
             nbet_iCAR_GP = lpos(iCAR_GP),
             nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
             nbet_BYM_nonspatial = lpos(BYM_nonspatial),
             nbet_GP_nonspatial = lpos(GP_nonspatial),
-            mean_dist = mean(mean_distance)) %>% 
-  mutate(species = fct_reorder(species,mean_dist) )
+            max_dist = max(mean_distance),
+            n_routes = length(unique(route)),
+            p_isolated = sum(ifelse(dist_cat == "Isolated",TRUE,FALSE))/n_routes,
+            p_isolated_mean = sum(ifelse(dist_cat_mean == "Isolated",TRUE,FALSE))/n_routes) %>% 
+  mutate(species = fct_reorder(species,p_isolated) )
 mndiffs_sp
 
+z_diffs_plot <- mndiffs_sp %>% 
+  select(species,
+         starts_with("z_")) %>% 
+  pivot_longer(names_to = "model_comparison",
+               values_to = "z",
+               cols = -species,
+               names_prefix = "z_")
+
+mn_diffs_plot <- mndiffs_sp %>% 
+  select(species,
+         starts_with("m_")) %>% 
+  pivot_longer(names_to = "model_comparison",
+               values_to = "mean",
+               cols = -species,
+               names_prefix = "m_")
+
+lci_diffs_plot <- mndiffs_sp %>% 
+  select(species,
+         starts_with("lci_")) %>% 
+  pivot_longer(names_to = "model_comparison",
+               values_to = "lci",
+               names_prefix = "lci_",
+               cols = -species)
 
 
-y_diffs_bym <- ggplot(data = mndiffs_sp,
-                      aes(y = m_iCAR_BYM,x = species))+
+uci_diffs_plot <- mndiffs_sp %>% 
+  select(species,
+         starts_with("uci_")) %>% 
+  pivot_longer(names_to = "model_comparison",
+               values_to = "uci",
+               names_prefix = "uci_",
+               cols = -species)
+
+
+diffs_plot <- inner_join(mn_diffs_plot,
+                         lci_diffs_plot) %>% 
+  inner_join(.,uci_diffs_plot) %>% 
+  inner_join(.,z_diffs_plot) %>% 
+  #filter(species != "White Ibis") %>% 
+  mutate(model_comparison = factor(model_comparison,ordered = TRUE,
+                                   levels = c("iCAR_nonspatial",
+                                              "BYM_nonspatial",
+                                              "GP_nonspatial",
+                                              "iCAR_GP",
+                                              "iCAR_BYM")))
+
+# y_diffs_all <- ggplot(data = diffs_plot,
+#                       aes(y = mean,x = species))+
+#   geom_point()+
+#   geom_errorbar(aes(ymin = lci,
+#                     ymax = uci),
+#                 alpha = 0.3,
+#                 width = 0)+
+#   geom_hline(yintercept = 0)+
+#   #coord_cartesian()+
+#   ylab("Mean difference in pointwise lpd")+
+#   xlab("")+
+#   coord_flip(ylim = c(-0.5,0.5))+
+#   facet_wrap(vars(model_comparison),
+#              nrow = 1,
+#              scales = "free_x")
+# 
+# y_diffs_all
+
+
+diffs_plot_sel <- diffs_plot %>% 
+  filter(grepl("nonspatial",model_comparison))
+
+z_diffs_all <- ggplot(data = diffs_plot_sel,
+                      aes(y = z,x = species,
+                          colour = model_comparison))+
   geom_point()+
-  scale_colour_viridis_c()+
   geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
+  scale_colour_viridis_d(direction = -1,
+                         end = 0.8)+
+  ylab("Z-score difference in pointwise lpd")+
+  xlab("")+
+  geom_hline(yintercept = c(-2,2),
+             alpha = 0.5)+
+  theme_bw()+
+  coord_flip()#ylim = c(-0.5,0.5))
 
-y_diffs_icar <- ggplot(data = mndiffs_sp,
-                       aes(y = m_iCAR_nonspatial,x = species))+
+pdf("Figures/Spatial_vs_non_3models.pdf",
+    height = 10,
+    width = 7.5)
+z_diffs_all
+dev.off()
+
+
+
+diffs_plot_sel2 <- diffs_plot %>% 
+  filter(!grepl("nonspatial",model_comparison))
+
+z_diffs_spat <- ggplot(data = diffs_plot_sel2,
+                      aes(y = z,x = species,
+                          colour = model_comparison))+
   geom_point()+
-  scale_colour_viridis_c()+
   geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
+  scale_colour_viridis_d(direction = -1,
+                         end = 0.8)+
+  ylab("Z-score difference in pointwise lpd")+
+  xlab("")+
+  geom_hline(yintercept = c(-2,2),
+             alpha = 0.5)+
+  theme_bw()+
+  coord_flip()#ylim = c(-0.5,0.5))
 
-y_diffs_gp <- ggplot(data = mndiffs_sp,
-                     aes(y = m_iCAR_GP,x = species))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
+pdf("Figures/Spatial_options_cv.pdf",
+    height = 10,
+    width = 7.5)
+z_diffs_spat
+dev.off()
 
-y_diffs_gp2 <- ggplot(data = mndiffs_sp,
-                      aes(y = m_GP_nonspatial,x = species))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
 
-y_diffs_gp2 + y_diffs_icar + y_diffs_gp + y_diffs_bym + plot_layout(guides = "collect")
+
 
 
 
@@ -283,20 +390,69 @@ y_diffs_gp2 + y_diffs_icar + y_diffs_gp + y_diffs_bym + plot_layout(guides = "co
 
 # By route distances ------------------------------------------------------
 
-mndiffs = diffs %>% 
-  group_by(species,dist_cat_mean) %>% 
-#  group_by(species,route,min_distance,sum_n_years,n_obs,max_nyears) %>% 
-  summarise(m_iCAR_BYM = median(iCAR_BYM),
-            m_iCAR_GP = median(iCAR_GP),
-            m_iCAR_nonspatial = median(iCAR_nonspatial),
-            m_BYM_nonspatial = median(BYM_nonspatial),
-            m_GP_nonspatial = median(GP_nonspatial),
+
+mndiffs_sp <- diffs %>% 
+  group_by(species) %>% 
+  summarise(m_iCAR_BYM = mean(iCAR_BYM),
+            m_iCAR_GP = mean(iCAR_GP),
+            m_iCAR_nonspatial = mean(iCAR_nonspatial),
+            m_BYM_nonspatial = mean(BYM_nonspatial),
+            m_GP_nonspatial = mean(GP_nonspatial),
+            se_iCAR_BYM = sd(iCAR_BYM)/sqrt(n()),
+            se_iCAR_GP = sd(iCAR_GP)/sqrt(n()),
+            se_iCAR_nonspatial = sd(iCAR_nonspatial)/sqrt(n()),
+            se_BYM_nonspatial = sd(BYM_nonspatial)/sqrt(n()),
+            se_GP_nonspatial = sd(GP_nonspatial)/sqrt(n()),
+            z_iCAR_BYM = mean(iCAR_BYM)/se_iCAR_BYM,
+            z_iCAR_GP = mean(iCAR_GP)/se_iCAR_GP,
+            z_iCAR_nonspatial = mean(iCAR_nonspatial)/se_iCAR_nonspatial,
+            z_BYM_nonspatial = mean(BYM_nonspatial)/se_BYM_nonspatial,
+            z_GP_nonspatial = mean(GP_nonspatial)/se_GP_nonspatial,
+            lci_iCAR_BYM = m_iCAR_BYM - se_iCAR_BYM*1.96,
+            lci_iCAR_GP = m_iCAR_GP - se_iCAR_GP*1.96,
+            lci_iCAR_nonspatial = m_iCAR_nonspatial - se_iCAR_nonspatial*1.96,
+            lci_BYM_nonspatial = m_BYM_nonspatial - se_BYM_nonspatial*1.96,
+            lci_GP_nonspatial = m_GP_nonspatial - se_GP_nonspatial*1.96,
+            uci_iCAR_BYM = m_iCAR_BYM + se_iCAR_BYM*1.96,
+            uci_iCAR_GP = m_iCAR_GP + se_iCAR_GP*1.96,
+            uci_iCAR_nonspatial = m_iCAR_nonspatial + se_iCAR_nonspatial*1.96,
+            uci_BYM_nonspatial = m_BYM_nonspatial + se_BYM_nonspatial*1.96,
+            uci_GP_nonspatial = m_GP_nonspatial + se_GP_nonspatial*1.96,
             nbet_iCAR_BYM = lpos(iCAR_BYM),
             nbet_iCAR_GP = lpos(iCAR_GP),
             nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
             nbet_BYM_nonspatial = lpos(BYM_nonspatial),
             nbet_GP_nonspatial = lpos(GP_nonspatial),
-            n_routes = n(),
+            max_dist = max(mean_distance),
+            n_routes = length(unique(route)),
+            p_isolated = sum(ifelse(dist_cat == "Isolated",TRUE,FALSE))/n_routes,
+            p_isolated_mean = sum(ifelse(dist_cat_mean == "Isolated",TRUE,FALSE))/n_routes) %>% 
+  mutate(species = fct_reorder(species,z_iCAR_GP) )
+
+mndiffs = diffs %>% 
+  group_by(species,dist_cat) %>% 
+#  group_by(species,route,min_distance,sum_n_years,n_obs,max_nyears) %>% 
+  summarise(m_iCAR_BYM = mean(iCAR_BYM),
+            m_iCAR_GP = mean(iCAR_GP),
+            m_iCAR_nonspatial = mean(iCAR_nonspatial),
+            m_BYM_nonspatial = mean(BYM_nonspatial),
+            m_GP_nonspatial = mean(GP_nonspatial),
+            se_iCAR_BYM = sd(iCAR_BYM)/sqrt(n()),
+            se_iCAR_GP = sd(iCAR_GP)/sqrt(n()),
+            se_iCAR_nonspatial = sd(iCAR_nonspatial)/sqrt(n()),
+            se_BYM_nonspatial = sd(BYM_nonspatial)/sqrt(n()),
+            se_GP_nonspatial = sd(GP_nonspatial)/sqrt(n()),
+            z_iCAR_BYM = mean(iCAR_BYM)/se_iCAR_BYM,
+            z_iCAR_GP = mean(iCAR_GP)/se_iCAR_GP,
+            z_iCAR_nonspatial = mean(iCAR_nonspatial)/se_iCAR_nonspatial,
+            z_BYM_nonspatial = mean(BYM_nonspatial)/se_BYM_nonspatial,
+            z_GP_nonspatial = mean(GP_nonspatial)/se_GP_nonspatial,
+            nbet_iCAR_BYM = lpos(iCAR_BYM),
+            nbet_iCAR_GP = lpos(iCAR_GP),
+            nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
+            nbet_BYM_nonspatial = lpos(BYM_nonspatial),
+            nbet_GP_nonspatial = lpos(GP_nonspatial),
+            n_routes = length(unique(route)),
             mean_dist = mean(mean_distance)) %>% 
   mutate(species = factor(species,ordered = TRUE,
                           levels = levels(mndiffs_sp$species)),
@@ -318,7 +474,7 @@ mndiffs
 
 y_diffs_gp <- ggplot(data = mndiffs,
                       aes(y = m_iCAR_GP,x = species,
-                          colour = dist_cat_mean))+
+                          colour = dist_cat))+
   geom_point()+
   scale_colour_viridis_d(direction = -1,
                          begin = 0.1,end = 0.8)+
@@ -326,77 +482,100 @@ y_diffs_gp <- ggplot(data = mndiffs,
   #coord_cartesian()+
   coord_flip()#ylim = c(-0.1,0.1))
 
+pdf("Figures/CV_GP_iCAR_isolated.pdf",
+    height = 10,
+    width = 7.5)
 y_diffs_gp
-
-
-y_diffs_icar <- ggplot(data = mndiffs,
-                     aes(y = m_iCAR_nonspatial,x = species,
-                         colour = dist_cat))+
-  geom_point()+
-  scale_colour_viridis_d(direction = -1,
-                         begin = 0.1,end = 0.8)+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip()#ylim = c(-0.1,0.1))
-
-y_diffs_icar
-
-
-
-y_diffs_icar_gp <- ggplot(data = mndiffs,
-                      aes(y = m_iCAR_GP,colour = mean_distance,
-                          x = max_nyears))+
-  geom_point(position = position_dodge(width = 0.25),
-             alpha = 0.2)+
-  scale_colour_viridis_c(direction = -1)+
-  geom_hline(yintercept = 0)+
-  #theme(legend.position = "none")+
-  facet_wrap(vars(species),
-             scales = "free")
-
-y_diffs_icar_gp
-
-
-
-y_diffs_icar <- ggplot(data = mndiffs,
-                       aes(y = m_iCAR_GP,x = min_distance,
-                           colour = max_nyears))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  theme(legend.position = "none")+
-  facet_wrap(vars(species),
-             scales = "free")
-
-y_diffs_icar
+dev.off()
 
 
 
 
 
 
-y_diffs_gp <- ggplot(data = mndiffs,
-                     aes(y = m_iCAR_GP,x = species,
-                         colour = as.integer(Year)))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
 
-y_diffs_gp2 <- ggplot(data = mndiffs,
-                      aes(y = m_GP_nonspatial,x = species,
-                          colour = as.integer(Year)))+
-  geom_point()+
-  scale_colour_viridis_c()+
-  geom_hline(yintercept = 0)+
-  #coord_cartesian()+
-  coord_flip(ylim = c(-0.1,0.1))
 
-y_diffs_gp2 + y_diffs_icar + y_diffs_gp + y_diffs_bym + plot_layout(guides = "collect")
+
+# Spatial pattern in route level differences ------------------------------
 
 
 
 
 
+mndiffs_route <- diffs %>% 
+  group_by(species,route) %>% 
+  summarise(m_iCAR_BYM = mean(iCAR_BYM),
+            m_iCAR_GP = mean(iCAR_GP),
+            m_iCAR_nonspatial = mean(iCAR_nonspatial),
+            m_BYM_nonspatial = mean(BYM_nonspatial),
+            m_GP_nonspatial = mean(GP_nonspatial),
+            se_iCAR_BYM = sd(iCAR_BYM)/sqrt(n()),
+            se_iCAR_GP = sd(iCAR_GP)/sqrt(n()),
+            se_iCAR_nonspatial = sd(iCAR_nonspatial)/sqrt(n()),
+            se_BYM_nonspatial = sd(BYM_nonspatial)/sqrt(n()),
+            se_GP_nonspatial = sd(GP_nonspatial)/sqrt(n()),
+            z_iCAR_BYM = mean(iCAR_BYM)/se_iCAR_BYM,
+            z_iCAR_GP = mean(iCAR_GP)/se_iCAR_GP,
+            z_iCAR_nonspatial = mean(iCAR_nonspatial)/se_iCAR_nonspatial,
+            z_BYM_nonspatial = mean(BYM_nonspatial)/se_BYM_nonspatial,
+            z_GP_nonspatial = mean(GP_nonspatial)/se_GP_nonspatial,
+            lci_iCAR_BYM = m_iCAR_BYM - se_iCAR_BYM*1.96,
+            lci_iCAR_GP = m_iCAR_GP - se_iCAR_GP*1.96,
+            lci_iCAR_nonspatial = m_iCAR_nonspatial - se_iCAR_nonspatial*1.96,
+            lci_BYM_nonspatial = m_BYM_nonspatial - se_BYM_nonspatial*1.96,
+            lci_GP_nonspatial = m_GP_nonspatial - se_GP_nonspatial*1.96,
+            uci_iCAR_BYM = m_iCAR_BYM + se_iCAR_BYM*1.96,
+            uci_iCAR_GP = m_iCAR_GP + se_iCAR_GP*1.96,
+            uci_iCAR_nonspatial = m_iCAR_nonspatial + se_iCAR_nonspatial*1.96,
+            uci_BYM_nonspatial = m_BYM_nonspatial + se_BYM_nonspatial*1.96,
+            uci_GP_nonspatial = m_GP_nonspatial + se_GP_nonspatial*1.96,
+            nbet_iCAR_BYM = lpos(iCAR_BYM),
+            nbet_iCAR_GP = lpos(iCAR_GP),
+            nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
+            nbet_BYM_nonspatial = lpos(BYM_nonspatial),
+            nbet_GP_nonspatial = lpos(GP_nonspatial),
+            max_dist = max(mean_distance))
+
+
+
+pdf("Figures/iCAR_vs_GP_preference_map.pdf")
+for(sp in species_list){
+  #species <- species_list[2]
+  
+  
+  species_f <- gsub(gsub(sp,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
+  
+  sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_CV_data.RData")
+  
+  
+  load(sp_data_file)
+  
+  cv_comp <- mndiffs_route %>% 
+    filter(species == sp)
+
+
+   cv_map <- route_map %>% 
+     inner_join(.,cv_comp,
+               by = "route")
+
+bks <- c(0,0.33,0.67,1)
+
+  icar_gp <- ggplot(data = cv_map)+
+    geom_sf(aes(colour = nbet_iCAR_GP))+
+    scale_colour_continuous_diverging(n_interp = 3,
+                                      breaks = bks,
+                                      rev = TRUE,
+                                      mid = 0.5,
+                                      name = "Proportion")+
+    labs(title = paste(sp,"Support for iCAR over GP by route"),
+         subtitle = "Porportion of predictions supporting iCAR over GP \n values > 0.5 (blue) support first model grey values indicate similar support")+
+     theme_bw()
+
+  print(icar_gp)
+  
+
+  
+  
+  }
+dev.off()
 

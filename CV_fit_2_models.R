@@ -15,6 +15,7 @@ model = "slope"
 
 ## this list should include all of the species that we're interested in for the grasslands project
 species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
+species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
 
 
 spp <- "_cv_"
@@ -25,7 +26,7 @@ base_year <- lastYear - floor((lastYear-firstYear)/2)
 
 
 
-for(species in species_list){
+for(species in rev(species_list_broad[-c(1:77)])){
 
   species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
   
@@ -34,7 +35,7 @@ for(species in species_list){
 # CROSS-VALIDATION loop through the annual re-fitting --------------------------------------
 
 
-for(sppn in c("iCAR","BYM","nonspatial")){
+for(sppn in c("iCAR","nonspatial")){
   
  
  

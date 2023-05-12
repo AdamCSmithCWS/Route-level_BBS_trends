@@ -99,7 +99,7 @@ spp <- "_base_"
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list_broad){
+for(species in species_list_broad[159:216]){
 #species <- species_list[2]
 
 
