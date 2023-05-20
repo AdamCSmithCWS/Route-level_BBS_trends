@@ -19,6 +19,8 @@ species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
 species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
 
 species_list <- c(species_list,"Blue-headed Vireo")
+species_list <- c(species_list,"Lazuli Bunting")
+species_list <- c(species_list,"Scissor-tailed Flycatcher")
 
 
 firstYear <- 2006
@@ -174,8 +176,8 @@ lpos = function(x){
   p = length(which(x > 0))/length(x)
 }
 # annual cv summary
-# mndiffs = diffs %>% 
-#   group_by(Year,species) %>% 
+# mndiffs = diffs %>%
+#   group_by(Year,species) %>%
 #   summarise(m_iCAR_BYM = mean(iCAR_BYM),
 #             m_iCAR_GP = mean(iCAR_GP),
 #             m_iCAR_nonspatial = mean(iCAR_nonspatial),
@@ -186,7 +188,7 @@ lpos = function(x){
 #             nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
 #             nbet_BYM_nonspatial = lpos(BYM_nonspatial),
 #             nbet_GP_nonspatial = lpos(GP_nonspatial),
-#             mean_dist = mean(mean_distance)) %>% 
+#             mean_dist = mean(mean_distance)) %>%
 #   mutate(species = fct_reorder(species,mean_dist) )
 # mndiffs
 # 
@@ -215,7 +217,7 @@ lpos = function(x){
 #   scale_colour_viridis_c()+
 #   geom_hline(yintercept = 0)+
 #   #coord_cartesian()+
-#   coord_flip(ylim = c(-0.1,0.1))
+#   coord_flip(ylim = c(-0.25,0.25))
 # 
 # y_diffs_gp2 <- ggplot(data = mndiffs,
 #                      aes(y = m_GP_nonspatial,x = species,
@@ -562,7 +564,7 @@ bks <- c(0,0.33,0.67,1)
 
   icar_gp <- ggplot(data = cv_map)+
     geom_sf(aes(colour = nbet_iCAR_GP))+
-    scale_colour_continuous_diverging(n_interp = 3,
+    colorspace::scale_colour_continuous_diverging(n_interp = 3,
                                       breaks = bks,
                                       rev = TRUE,
                                       mid = 0.5,

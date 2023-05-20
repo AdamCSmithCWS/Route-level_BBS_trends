@@ -212,7 +212,7 @@ neighbours_define_voronoi <- function(real_point_map = route_map, #sf map of str
                             x = species)
     
     
-    plot_file_name = paste0(plot_dir,species_dirname,plot_file,".pdf")
+    plot_file_name = paste0(plot_dir,"/",species_dirname,plot_file,".pdf")
     
     
     

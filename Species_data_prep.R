@@ -99,7 +99,7 @@ spp <- "_base_"
 
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list_broad[159:216]){
+for(species in species_list_broad){
 #species <- species_list[2]
 
 
@@ -251,7 +251,8 @@ car_stan_dat <- neighbours_define_voronoi(real_point_map = route_map,
                                   strat_indicator = "routeF",
                                   strata_map = realized_strata_map,
                                   concavity = 1,
-                                  save_plot_data = TRUE)#concavity argument from concaveman()
+                                  save_plot_data = TRUE,
+                                  plot_dir = "data")#concavity argument from concaveman()
 	
 ## a relative measure of concavity. 1 results in a relatively detailed shape, Infinity results in a convex hull.
 
