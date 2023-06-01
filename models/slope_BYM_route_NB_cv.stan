@@ -99,25 +99,25 @@ model {
 
   phi = 1/sqrt(sdnoise); //as recommended to avoid prior that places most prior mass at very high overdispersion by https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
 
-  sdobs ~ std_normal(); //prior on sd of gam hyperparameters
+  sdobs ~ normal(0,0.3); //prior on sd of observer effects
  
-  obs_raw ~ normal(0,1);//observer effects
-//  sum(obs_raw) ~ normal(0,0.001*nobservers);
+  obs_raw ~ std_normal();//observer effects
+  sum(obs_raw) ~ normal(0,0.001*nobservers);
 
   count ~ neg_binomial_2_log(E,phi); //vectorized count likelihood with log-transformation
   
   BETA ~ normal(0,0.1);// prior on fixed effect mean slope
-  ALPHA ~ normal(0,1);// prior on fixed effect mean intercept
-  eta ~ normal(0,1);// prior on first-year observer effect
-  
+  ALPHA ~ std_normal();// prior on fixed effect mean intercept
+  eta ~ std_normal();// prior on first-year observer effect
+ 
   
   //spatial iCAR intercepts and slopes by strata
   sdalpha ~ normal(0,2); //prior on sd of intercept variation
   // sdbeta_space ~ gamma(2,50);//~ normal(0,0.05); //boundary avoiding prior on sd of slope spatial variation w mean = 0.04 and 99% < 0.13
   // sdbeta_rand  ~ gamma(2,50);//~ normal(0,0.05); //boundary avoiding prior on sd of slope random variation
 
-  sdbeta_space ~ student_t(10,0,0.1);//~ normal(0,0.05); //
-  sdbeta_rand  ~ student_t(10,0,0.1);//~ normal(0,0.05); //
+  sdbeta_space ~ gamma(3,30);//zero-avoiding prior on sd of slope spatial variation w mean = 0.1 and 99% < 0.3
+  sdbeta_rand ~ gamma(3,30);//zero-avoiding prior on sd of slope variation w mean = 0.1 and 99% < 0.3
 
   beta_raw_space ~ icar_normal(nroutes, node1, node2);
   alpha_raw ~ icar_normal(nroutes, node1, node2);

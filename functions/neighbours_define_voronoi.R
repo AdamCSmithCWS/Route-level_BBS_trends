@@ -260,7 +260,7 @@ neighbours_define_voronoi <- function(real_point_map = route_map, #sf map of str
       dev.off()
       
       #save the data in a .RData file
-      save_file_name = paste0(plot_dir,species_dirname,plot_file,"_data.RData")
+      save_file_name = paste0(plot_dir,"/",species_dirname,plot_file,"_data.RData")
       
       save(list = c("centres",
                     "real_point_map",

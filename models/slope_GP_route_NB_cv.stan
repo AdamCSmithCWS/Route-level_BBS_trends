@@ -114,18 +114,18 @@ model {
   gp_sq_alpha_alpha ~ student_t(5,0,1);
   // Multiplier for non-centred GP parameterisation
   gp_eta_beta ~ normal(0,0.1);
-  gp_eta_alpha ~ student_t(8,0,1);
-  
+  gp_eta_alpha ~ std_normal();
+   
   sdnoise ~ student_t(3,0,1); //prior on scale of extra Poisson log-normal variance
 
-  sdobs ~ std_normal(); //prior on sd of observer effects
+  sdobs ~ normal(0,0.3); //prior on sd of observer effects
  
   obs_raw ~ std_normal();//observer effects
   sum(obs_raw) ~ normal(0,0.001*nobservers);
 
  
-  BETA ~ normal(0,0.2);// prior on fixed effect mean slope
-  ALPHA ~ student_t(3,0,1);;// prior on fixed effect mean intercept
+  BETA ~ normal(0,0.1);// prior on fixed effect mean slope
+  ALPHA ~ std_normal();// prior on fixed effect mean intercept
   eta ~ std_normal();// prior on first-year observer effect
   
   

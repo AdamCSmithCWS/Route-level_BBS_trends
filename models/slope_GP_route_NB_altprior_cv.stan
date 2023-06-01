@@ -43,6 +43,12 @@ data {
   matrix[nroutes, nroutes] distances;   // distance matrix (in km/1000)
 
 
+// values for predicting next years data
+  int<lower=1> ncounts_pred;
+  array[ncounts_pred] int<lower=0> count_pred;              // count observations
+  array[ncounts_pred] int<lower=1> route_pred; // route index
+  array[ncounts_pred] int<lower=0> firstyr_pred; // first year index
+  array[ncounts_pred] int<lower=0> observer_pred; 
 
 }
 
@@ -99,17 +105,17 @@ model {
   // Prior for the GP length scale (i.e. spatial decay)
   // very small values will be inidentifiable, so an informative prior
   // is a must
-  // gp_sq_rho_beta ~ normal(2, 2);
-  // gp_sq_rho_alpha ~ normal(2, 2);
-  gp_sq_rho_beta ~ inv_gamma(5,5);
-  gp_sq_rho_alpha ~ inv_gamma(5,5);
+  // gp_sq_rho_beta ~ normal(2, 2.5);
+  // gp_sq_rho_alpha ~ normal(2, 2.5);
+  gp_sq_rho_beta ~ gamma(2,2);
+  gp_sq_rho_alpha ~ gamma(2,2);
   // Prior for the GP covariance magnitude
   gp_sq_alpha_beta ~ student_t(5,0,1);
   gp_sq_alpha_alpha ~ student_t(5,0,1);
   // Multiplier for non-centred GP parameterisation
   gp_eta_beta ~ normal(0,0.1);
   gp_eta_alpha ~ std_normal();
-  
+   
   sdnoise ~ student_t(3,0,1); //prior on scale of extra Poisson log-normal variance
 
   sdobs ~ normal(0,0.3); //prior on sd of observer effects
@@ -133,5 +139,31 @@ model {
   
 }
 
+
+
+generated quantities {
+
+  vector[ncounts_pred] log_lik;
+  vector[ncounts_pred] E_pred;           // log_scale additive likelihood
+
+// Predictions for nyears+1
+
+  for(i in 1:ncounts_pred){
+    real obs_tmp;
+    if(observer_pred[i] == 0) 
+    obs_tmp = normal_rng(0,sdobs);
+    else
+    obs_tmp = sdobs*obs_raw[observer_pred[i]];
+
+    
+    E_pred[i] =  beta[route_pred[i]] * ((nyears+1)-fixedyear) + alpha[route_pred[i]] + obs_tmp + eta*firstyr_pred[i];
+   log_lik[i] = neg_binomial_2_log_lpmf(count_pred[i] | E_pred[i],phi);
+  }
+  
+  
+  
+ 
+
+ }
 
 

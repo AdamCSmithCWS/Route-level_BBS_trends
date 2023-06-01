@@ -2,7 +2,7 @@
 
 library(tidyverse)
 library(patchwork)
-
+library(sf)
 
 # Figure_1 ----------------------------------------------------------------
 
@@ -10,7 +10,7 @@ library(patchwork)
 
 # load saved neighbours data from neighbours_define_voronoi(..., save_plot_data = TRUE)
 
-load("data/Lazuli_Bunting_route_maps_data.RData")
+load("data/Baird's_Sparrow_route_maps_data.RData")
 
 box <- st_as_sfc(st_bbox(strata_map))
 
@@ -57,6 +57,8 @@ dev.off()
 
 
 # Figure 2 - 4 model comparison -------------------------------------------
+output_dir <- "F:/iCAR_route_2021/output"
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")
 
 firstYear <- 2006
 lastYear <- 2021
@@ -66,7 +68,7 @@ ppy <- function(x){
   return(p*100)
 }
 
-species <- "Lazuli Bunting" 
+species <- "Baird's Sparrow" 
   
 
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
@@ -131,14 +133,25 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     outboth <- bind_rows(outboth,both) %>% 
       mutate(species = species)
     
+    both_wide <- both %>% 
+      select(routeF,trend_mean,trend_sd,abundance_mean,abundance_sd) %>% 
+      rename_with(.cols = -routeF,
+                  .fn = ~paste(spp1,.x,sep = "_"))
+    
+    if(spp1 == "BYM"){
+      both_wide_out <- both_wide
+    }else{
+    both_wide_out <- inner_join(both_wide_out,both_wide,
+                                by = "routeF")
+    }
     
     
   } #end models loop
   
   strata_bounds <- st_union(route_map) #union to provide a simple border of the realised strata
   bb = st_bbox(strata_bounds)
-  xlms = as.numeric(c(bb$xmin,bb$xmax))
-  ylms = as.numeric(c(bb$ymin,bb$ymax))
+  xlms = as.numeric(c(bb$xmin,bb$xmax))*1.05
+  ylms = as.numeric(c(bb$ymin,bb$ymax))*1.05
   
   
   plot_map <- route_map %>% 
@@ -177,7 +190,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                         name = paste0(lgnd_head,firstYear,"-",lastYear))+
     coord_sf(xlim = xlms,ylim = ylms)+
     theme_bw()+
-    labs(title = paste(species, "trends"))+
+    #labs(title = paste(species, "trends"))+
     facet_wrap(vars(model))
   
   pdf(paste0("Figures/Figure_2.pdf"),
@@ -201,7 +214,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                            name = paste0("SE of Trend",firstYear,"-",lastYear))+
     coord_sf(xlim = xlms,ylim = ylms)+
     theme_bw()+
-    labs(title = paste(species, "Standard error"))+
+    #labs(title = paste(species, "Standard error"))+
     facet_wrap(vars(model))
   
  # version with teh SE of hte maps
@@ -210,4 +223,196 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       width = 7.5)
   print(map / map_se)
   dev.off()
+  
+
+  
+  lgnd_head <- "Mean Abundance\n"
+  map_abund <- ggplot()+
+    geom_sf(data = base_strata_map,
+            fill = NA,
+            colour = grey(0.75))+
+    geom_sf(data = plot_map,
+            aes(colour = abundance_mean,
+                size = abundance_sd/abundance_mean))+
+    scale_size_continuous(range = c(0.05,2),
+                          name = "CV Abundance",
+                          trans = "reverse")+
+    scale_colour_viridis_c(guide = guide_legend(reverse=TRUE),
+                        name = paste0(lgnd_head,firstYear,"-",lastYear))+
+    coord_sf(xlim = xlms,ylim = ylms)+
+    theme_bw()+
+    #labs(title = paste(species, "abundance"))+
+    facet_wrap(vars(model))
+  
+  pdf(paste0("Figures/Figure_3.pdf"),
+      height = 7,
+      width = 7.5)
+  print(map_abund)
+  dev.off()
+  
+  
+# 
+#   ab_iCAR <- ggplot(data = both_wide_out)+
+#     geom_point(aes(x = nonspatial_abundance_mean,
+#                    y = iCAR_abundance_mean))+
+#     geom_abline(slope = 1,intercept = 0)+
+#     scale_y_continuous(limits = c(0.05,20),
+#                        trans = "log10")+
+#     scale_x_continuous(trans = "log10")+
+#     theme_bw()
+#   
+#   ab_BYM <- ggplot(data = both_wide_out)+
+#     geom_point(aes(x = nonspatial_abundance_mean,
+#                    y = BYM_abundance_mean))+
+#     geom_abline(slope = 1,intercept = 0)+
+#     scale_y_continuous(limits = c(0.05,20),
+#                        trans = "log10")+
+#     scale_x_continuous(trans = "log10")+
+#     theme_bw()
+#   
+#   ab_GP <- ggplot(data = both_wide_out)+
+#     geom_point(aes(x = nonspatial_abundance_mean,
+#                    y = GP_abundance_mean))+
+#     geom_abline(slope = 1,intercept = 0)+
+#     scale_y_continuous(limits = c(0.05,20),
+#                        trans = "log10")+
+#     scale_x_continuous(trans = "log10")+
+#     theme_bw()
+# 
+# ab_all <- ab_iCAR + ab_BYM + ab_GP 
+# 
+# ab_all 
+  
+  ## showing that sdobs is lower with the increased smoothing of the iCAR
+#   conv_sum <- readRDS("data/convergence_summary_May31.rds")
+#   sdobs_BASP <- conv_sum %>% filter(species == "Baird's Sparrow", variable == "sdobs")
+  # sdobs_BASP %>% select(variable,mean,sd,rhat,model)
+  # # A tibble: 4 × 5
+  # variable  mean    sd  rhat model     
+  # <chr>    <dbl> <dbl> <dbl> <chr>     
+  # 1 sdobs     1.09 0.130  1.01 BYM       
+  # 2 sdobs     1.08 0.125  1.00 iCAR      
+  # 3 sdobs     1.30 0.142  1.00 nonspatial
+  # 4 sdobs     1.22 0.135  1.01 GP 
+  
+  
+  
+  
+
+# Figure 4 ----------------------------------------------------------------
+
+  ## CV summary for all 4 models
+
+  diffs_plot <- readRDS("data_cv_summary_4models_plotting_data.rds")
+ 
+  cv_comparisons <- diffs_plot %>% 
+    select(model_comparison) %>% 
+    distinct() %>% 
+    mutate(model_comp_plot = str_replace(model_comparison,
+                                         "_"," - "),
+           model_comp_plot = str_replace(model_comp_plot,
+                                         "nonspatial","Non-spatial"),
+           model_comp_plot = factor(model_comp_plot,
+                                    levels = rev(c("iCAR - Non-spatial",
+                                               "GP - Non-spatial",
+                                               "BYM - Non-spatial",
+                                               "iCAR - GP",
+                                               "iCAR - BYM")),
+                                    ordered = TRUE))
+  
+  diffs_plot_sel <- diffs_plot %>% 
+    filter(grepl("nonspatial",model_comparison)) %>% 
+    inner_join(.,cv_comparisons,
+               by = "model_comparison")
+  
+  z_diffs_all <- ggplot(data = diffs_plot_sel,
+                        aes(y = z,x = species,
+                            colour = model_comp_plot))+
+    geom_point()+
+    geom_hline(yintercept = 0)+
+    scale_colour_viridis_d(direction = -1,
+                           end = 0.8)+
+    ylab("Z-score difference in pointwise lpd")+
+    xlab("")+
+    geom_hline(yintercept = c(-2,2),
+               alpha = 0.5)+
+    theme_bw()+
+    coord_flip()#ylim = c(-0.5,0.5))
+  
+  pdf("Figures/Figure_S4.pdf",
+      height = 10,
+      width = 7.5)
+  z_diffs_all
+  dev.off()
+  
+
+  ## raincloud plot of z-score differences from nonspatial
+  
+  
+  # Raincloud plot ----------------------------------------------------------
+  
+  
+
+  diffs_plot_sel <- diffs_plot %>% 
+   # filter(grepl("nonspatial",model_comparison)| model_comparison == "iCAR_GP") %>% 
+    inner_join(.,cv_comparisons,
+               by = "model_comparison")
+  
+  
+  y_diffs_hist <- ggplot(data = diffs_plot_sel,
+                         aes(y = z,
+                             x = model_comp_plot,
+                             #colour = model_comp_plot,
+                             group = model_comp_plot))+
+    # ggdist::stat_halfeye(.width = 0,
+    #                      #adjust = 0.3,
+    #                      justification = 0,
+    #                      point_color = NA,
+    #                      alpha = 0.3)+
+    # geom_boxplot(width = 0.12,
+    #              alpha = 0.5)+
+    ggdist::stat_dots(side = "right",
+                      justification = 0,
+                      binwidth = 0.2)+
+    theme_bw()+
+    ylab("Z-score difference in pointwise lpd")+
+    xlab("")+
+    scale_x_discrete(guide = guide_axis(position = "right"))+
+    # theme(axis.text.y = element_blank(),
+    #       axis.ticks.y = element_blank())+
+    geom_hline(yintercept = c(-2,2), alpha = 0.4)+
+    geom_hline(yintercept = 0, alpha = 1)+
+    # guides(colour = guide_legend(title = "Model comparison",
+    #                              reverse = TRUE),
+    #        fill = guide_legend(title = "Model comparison",
+    #                            reverse = TRUE))+
+    # scale_colour_viridis_d(begin = 0.2,end = 0.9,
+    #                        aesthetics = c("fill","colour"))+
+    coord_flip()
+  
+  pdf("Figures/Figure_4.pdf",
+      height = 4,
+      width = 7.5)
+  y_diffs_hist
+  dev.off()
+  
+  
+  
+  
+
+# Figure 5 ----------------------------------------------------------------
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+    
   

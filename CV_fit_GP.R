@@ -17,8 +17,22 @@ model = "slope"
 species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
 
 
+## if rerunning species with failed convergence using alternate priors for rho and theta
+rerun <- TRUE
 
-spp <- "_cv_"
+if(rerun){
+  # SPECIES LOOP ------------------------------------------------------------
+  
+  conv_rerun <- readRDS("data/convergence_fail_rerun.rds") %>% 
+    filter(model == "GP") %>% 
+    rename(speciesl = species) %>% 
+    arrange(speciesl)
+  
+  species_list <- unique(conv_rerun$speciesl)
+}
+
+
+
 
 
 firstYear <- 2006
@@ -114,7 +128,14 @@ for(ynext in (base_year+1):lastYear){
   stan_data[["ncounts_pred"]] <- length(obs_df_predict$count)
   
   
-  mod.file = paste0("models/slope",spp,"route_NB_CV.stan")
+  if(rerun){
+   
+    mod.file = paste0("models/slope",spp,"route_NB_altprior_CV.stan")
+    
+  }else{
+    mod.file = paste0("models/slope",spp,"route_NB_CV.stan")
+    
+  }
   
   ## compile model
   slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))

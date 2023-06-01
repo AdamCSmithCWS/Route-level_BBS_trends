@@ -101,8 +101,8 @@ model {
   // is a must
   // gp_sq_rho_beta ~ normal(2, 2);
   // gp_sq_rho_alpha ~ normal(2, 2);
-  gp_sq_rho_beta ~ inv_gamma(5,5);
-  gp_sq_rho_alpha ~ inv_gamma(5,5);
+  gp_sq_rho_beta ~ gamma(2,2);
+  gp_sq_rho_alpha ~ gamma(2,2);
   // Prior for the GP covariance magnitude
   gp_sq_alpha_beta ~ student_t(5,0,1);
   gp_sq_alpha_alpha ~ student_t(5,0,1);

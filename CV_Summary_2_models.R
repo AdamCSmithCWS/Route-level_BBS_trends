@@ -3,6 +3,7 @@ setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 library(tidyverse)
 library(sf)
 library(patchwork)
+library(ggdist)
 
 source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
 ## changes captured in a commit on Nov 20, 2020
@@ -18,7 +19,7 @@ species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
 
 species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
 
-
+sp_list_full <- c(species_list,species_list_broad)
 
 
 firstYear <- 2006
@@ -27,13 +28,16 @@ base_year <- lastYear - floor((lastYear-firstYear)/2)
 
 
 
+resummarise <- FALSE
+
 # Collect the summaries of each species -----------------------------------
 
+if(resummarise){
 
 cv_sum = NULL
 n_obs <- NULL
 
-for(species in species_list_broad){
+for(species in sp_list_full){
   #species <- species_list[2]
   
 
@@ -116,10 +120,16 @@ for(species in species_list_broad){
 
 
 
+saveRDS(cv_sum,"output/saved_cross_validation_summary_2_models.rds")
+saveRDS(n_obs,"output/saved_nobs_cross_validation_summary_2_models.rds")
 
+
+}else{
+  cv_sum <- readRDS("output/saved_cross_validation_summary_2_models.rds")
+    n_obs <- readRDS("output/saved_nobs_cross_validation_summary_2_models.rds")
+  }
+#end if resummarise
 # explore and plot comparison ---------------------------------------------
-
-
 
 
 # point wise differences among models -------------------------------------
@@ -161,18 +171,19 @@ cv_sum <- cv_sum %>%
                         ordered = FALSE),
          I = paste(species,E_pred_i,sep = "-"))
 
-# save(list = c("diffs","cv_sum"),
-#      file = "data/cv_summary_25_data.RData")
+
 
 
 lpos = function(x){
   p = length(which(x > 0))/length(x)
 }
-mndiffs = diffs %>% 
+mndiffs_y = diffs %>% 
+  #filter(species %in% c("Dickcissel","White-crowned Sparrow","Sharp-shinned Hawk")) %>% 
   group_by(Year,species) %>% 
   summarise(n_routes = length(unique(route)),
             m_iCAR_nonspatial = mean(iCAR_nonspatial),
             se_iCAR_nonspatial = sd(iCAR_nonspatial)/sqrt(n()),
+            z_iCAR_nonspatial = mean(iCAR_nonspatial)/se_iCAR_nonspatial,
             lci_iCAR_nonspatial = m_iCAR_nonspatial - se_iCAR_nonspatial*1.96,
             uci_iCAR_nonspatial = m_iCAR_nonspatial + se_iCAR_nonspatial*1.96,
            nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
@@ -180,19 +191,21 @@ mndiffs = diffs %>%
            p_isolated = sum(ifelse(dist_cat == "Isolated",TRUE,FALSE))/n_routes,
            p_isolated_mean = sum(ifelse(dist_cat_mean == "Isolated",TRUE,FALSE))/n_routes) %>% 
   mutate(species = fct_reorder(species,mean_dist) )
-mndiffs
+mndiffs_y
 
 
-# y_diffs_icar <- ggplot(data = mndiffs,
-#                       aes(y = m_iCAR_nonspatial,x = species,
-#                           colour = as.integer(Year)))+
-#   geom_point()+
-#   scale_colour_viridis_c()+
-#   geom_hline(yintercept = 0)+
-#   #coord_cartesian()+
-#   coord_flip(ylim = c(-0.1,0.1))
-# 
-# y_diffs_icar
+y_diffs_icar <- ggplot(data = mndiffs_y,
+                      aes(y = z_iCAR_nonspatial,x = species,
+                          colour = as.integer(Year)))+
+  geom_point()+
+  scale_colour_viridis_c()+
+  geom_hline(yintercept = 0)+
+  #coord_cartesian()+
+  coord_flip()#ylim = c(-0.1,0.1))
+
+y_diffs_icar
+
+
 
 mndiffs_sp = diffs %>% 
   group_by(species) %>% 
@@ -234,16 +247,24 @@ mndiffs_sp
 # y_diffs_icar
 # dev.off()
 
-
+mndiffs_sp <- mndiffs_sp %>% 
+  mutate(nbet_d = cut(nbet_iCAR_nonspatial,breaks = seq(0,10,1)/10),
+         base = 0)
 
 y_diffs_icar <- ggplot(data = mndiffs_sp,
                        aes(y = z_iCAR_nonspatial,x = species))+
-  geom_point()+
- # scale_colour_viridis_c()+
+  #geom_point(aes(colour = nbet_d))+
+  geom_errorbar(aes(colour = nbet_d,ymin = base,ymax = z_iCAR_nonspatial),
+            linewidth = 0.5,
+            width = 0)+
+  scale_color_viridis_d(direction = -1,
+                        begin = 0.2,end = 0.9)+
+  guides(colour = guide_legend(title = "Proportion supporting \n spatial model"))+
   geom_hline(yintercept = 0)+
   geom_hline(yintercept = c(-2,2),
              alpha = 0.5)+
   theme_bw()+
+  theme(axis.text.y = element_text(size = 4))+
   ylab("Z-score difference in pointwise lpd (iCAR - Non-spatial)")+
   xlab("")+
   #coord_cartesian()+
@@ -259,6 +280,34 @@ dev.off()
 
 
 
+# Raincloud plot ----------------------------------------------------------
+
+
+bns <- seq(-1,22,by = 1)
+
+
+y_diffs_hist <- ggplot(data = mndiffs_sp,
+                       aes(y = z_iCAR_nonspatial,
+                           colour = nbet_iCAR_nonspatial))+
+  ggdist::stat_halfeye(.width = 0,
+                       adjust = 0.5,
+                       justification = 0,
+                       point_color = NA)+
+  # geom_boxplot(width = 0.12,
+  #              alpha = 0.5)+
+  ggdist::stat_dots(side = "left",
+                    justification = 1.1,
+                    binwidth = 0.2)+
+  theme_bw()+
+  ylab("Z-score difference in pointwise lpd (iCAR - Non-spatial)")+
+  xlab("")+
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())+
+  geom_hline(yintercept = 2, alpha = 0.4)+
+  geom_hline(yintercept = 0, alpha = 1)+
+  coord_flip(xlim = c(-3,1))
+
+y_diffs_hist
 
 
 # Spatial pattern in route level differences ------------------------------
@@ -303,7 +352,7 @@ for(sp in species_list_broad){
   
   icar_ns <- ggplot(data = cv_map)+
     geom_sf(aes(colour = nbet_iCAR_nonspatial))+
-    scale_colour_continuous_diverging(n_interp = 3,
+    colorspace::scale_color_continuous_diverging(n_interp = 3,
                                       breaks = bks,
                                       rev = TRUE,
                                       mid = 0.5,

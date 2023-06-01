@@ -316,6 +316,9 @@ diffs_plot <- inner_join(mn_diffs_plot,
                                               "iCAR_GP",
                                               "iCAR_BYM")))
 
+
+saveRDS(diffs_plot,"data_cv_summary_4models_plotting_data.rds")
+
 # y_diffs_all <- ggplot(data = diffs_plot,
 #                       aes(y = mean,x = species))+
 #   geom_point()+
