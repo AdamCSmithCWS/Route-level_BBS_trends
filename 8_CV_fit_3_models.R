@@ -17,51 +17,56 @@ model = "slope"
 species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
 
 
-## if rerunning species with failed convergence using alternate priors for rho and theta
+spp <- "_cv_"
+
+firstYear <- 2006
+lastYear <- 2021
+base_year <- lastYear - floor((lastYear-firstYear)/2) 
+
+
 rerun <- TRUE
 
 if(rerun){
   # SPECIES LOOP ------------------------------------------------------------
   
   conv_rerun <- readRDS("data/convergence_fail_rerun.rds") %>% 
-    filter(model == "GP") %>% 
+    filter(model != "GP") %>% 
     rename(speciesl = species) %>% 
     arrange(speciesl)
   
-  species_list <- unique(conv_rerun$speciesl)
+  sp_list_rerun <- unique(conv_rerun$speciesl)
 }
 
 
 
+for(species in sp_list_rerun){
 
-
-firstYear <- 2006
-lastYear <- 2021
-base_year <- firstYear + floor((lastYear-firstYear)/2) 
-
-j <- 1
-nsplit = 8
-for(species in species_list[c((1:nsplit)+((j*nsplit)-nsplit))]){
-
-  #species <- species_list[4]
-  
   species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
   
   
 
 # CROSS-VALIDATION loop through the annual re-fitting --------------------------------------
-
-
-for(sppn in c("GP")){
+  
+  if(rerun){
+    wr <- conv_rerun %>% 
+      filter(speciesl == species)
+    modsToRun <- as.character(wr$model)
+    
+  }else{
+    modsToRun <- c("BYM","iCAR","nonspatial")
+  }
   
 
+  for(sppn in modsToRun){
+    
 
   spp <- paste0("_",sppn,"_")
   
+  if(!rerun){
   if(file.exists(paste0("output/",species_f,spp,"_pred_save.rds"))){
     next
   }
-  
+  }
   
   out_base_1 <- paste0(species_f,spp,firstYear,"_",lastYear)
   
@@ -76,7 +81,7 @@ for(sppn in c("GP")){
 
   predictions_save <- NULL
   
- 
+
 for(ynext in (base_year+1):lastYear){
   if(ynext == 2020){next} #there are no BBS data in 2020 to predict
   out_base <- paste0(species_f,spp,firstYear,"_",ynext,"_CV")
@@ -104,15 +109,32 @@ for(ynext in (base_year+1):lastYear){
     select(observer,ObsN) %>% 
     distinct()
 
-  if(spp == "_GP_"){
-    units(dist_matrix_km) <- NULL
+  if(spp != "_nonspatial_"){
     
-  stan_data[["distances"]] <- dist_matrix_km
-  
-  
+  stan_data[["N_edges"]] = car_stan_dat$N_edges
+  stan_data[["node1"]] = car_stan_dat$node1
+  stan_data[["node2"]] = car_stan_dat$node2
   }  
   
   # setting up the prediction data ------------------------------------------
+  
+  # slightly more informative prior on sdalpha intercept sd
+  # this seems to help for low-abundance species where the 
+  # half-normal sd = 2 prior includes a lot of prior mass at extreme values
+  # e.g., 100 fold changes in mean abundance, when the counts range from 0 - 2
+  # alternate prior sets the sd of the intercept variance to the observed sd
+  # of mean counts among all routes. This prior helps convergence for some
+  # species (some of the birds of prey and waterbirds that have very low abundance)
+  if(rerun){
+    tmp <- data.frame(route = stan_data$route,count = stan_data$count) %>% 
+      group_by(route) %>% 
+      summarise(mean_count = mean(count))
+    sd_alpha_prior <- sd(tmp$mean_count)
+  }else{
+    sd_alpha_prior <- 2 
+  }
+  
+  stan_data[["sd_alpha_prior"]] <- sd_alpha_prior
   
   
   obs_df_predict <- full_data %>% 
@@ -128,14 +150,7 @@ for(ynext in (base_year+1):lastYear){
   stan_data[["ncounts_pred"]] <- length(obs_df_predict$count)
   
   
-  if(rerun){
-   
-    mod.file = paste0("models/slope",spp,"route_NB_altprior_CV.stan")
-    
-  }else{
-    mod.file = paste0("models/slope",spp,"route_NB_CV.stan")
-    
-  }
+  mod.file = paste0("models/slope",spp,"route_NB_CV.stan")
   
   ## compile model
   slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))

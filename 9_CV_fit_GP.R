@@ -17,16 +17,34 @@ model = "slope"
 species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
 
 
-spp <- "_cv_"
+## if rerunning species with failed convergence using alternate priors for rho and theta
+rerun <- TRUE
+
+if(rerun){
+  # SPECIES LOOP ------------------------------------------------------------
+  
+  conv_rerun <- readRDS("data/convergence_fail_rerun.rds") %>% 
+    filter(model == "GP") %>% 
+    rename(speciesl = species) %>% 
+    arrange(speciesl)
+  
+  species_list <- unique(conv_rerun$speciesl)
+}
+
+
+
+
 
 firstYear <- 2006
 lastYear <- 2021
-base_year <- lastYear - floor((lastYear-firstYear)/2) 
+base_year <- firstYear + floor((lastYear-firstYear)/2) 
 
+j <- 1
+nsplit = 4
+for(species in species_list[c((1:nsplit)+((j*nsplit)-nsplit))]){
 
-
-for(species in species_list){
-
+  #species <- species_list[4]
+  
   species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
   
   
@@ -34,15 +52,16 @@ for(species in species_list){
 # CROSS-VALIDATION loop through the annual re-fitting --------------------------------------
 
 
-for(sppn in c("iCAR","BYM","nonspatial")){
+for(sppn in c("GP")){
   
- 
- 
+
+
   spp <- paste0("_",sppn,"_")
   
-  
-  if(file.exists(paste0("output/",species_f,spp,"_pred_save.rds"))){
-    next
+   if(!rerun){
+    if(file.exists(paste0("output/",species_f,spp,"_pred_save.rds"))){
+      next
+    }
   }
   
   
@@ -59,7 +78,7 @@ for(sppn in c("iCAR","BYM","nonspatial")){
 
   predictions_save <- NULL
   
-
+ 
 for(ynext in (base_year+1):lastYear){
   if(ynext == 2020){next} #there are no BBS data in 2020 to predict
   out_base <- paste0(species_f,spp,firstYear,"_",ynext,"_CV")
@@ -87,11 +106,12 @@ for(ynext in (base_year+1):lastYear){
     select(observer,ObsN) %>% 
     distinct()
 
-  if(spp != "_nonspatial_"){
+  if(spp == "_GP_"){
+    units(dist_matrix_km) <- NULL
     
-  stan_data[["N_edges"]] = car_stan_dat$N_edges
-  stan_data[["node1"]] = car_stan_dat$node1
-  stan_data[["node2"]] = car_stan_dat$node2
+  stan_data[["distances"]] <- dist_matrix_km
+  
+  
   }  
   
   # setting up the prediction data ------------------------------------------
@@ -110,7 +130,14 @@ for(ynext in (base_year+1):lastYear){
   stan_data[["ncounts_pred"]] <- length(obs_df_predict$count)
   
   
-  mod.file = paste0("models/slope",spp,"route_NB_CV.stan")
+  if(rerun){
+   
+    mod.file = paste0("models/slope",spp,"route_NB_altprior_CV.stan")
+    
+  }else{
+    mod.file = paste0("models/slope",spp,"route_NB_CV.stan")
+    
+  }
   
   ## compile model
   slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))

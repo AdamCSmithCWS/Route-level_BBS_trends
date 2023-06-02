@@ -29,7 +29,7 @@ data {
   int<lower=1> ncounts;
   int<lower=1> nyears;
   int<lower=1> nobservers;
- 
+
   array [ncounts] int<lower=0> count;              // count observations
   array [ncounts] int<lower=1> year; // year index
   array [ncounts] int<lower=1> route; // route index

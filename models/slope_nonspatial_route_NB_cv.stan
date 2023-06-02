@@ -11,6 +11,9 @@ data {
   int<lower=1> nyears;
   int<lower=1> nobservers;
  
+   real<lower=0> sd_alpha_prior;
+
+
   array [ncounts] int<lower=0> count;              // count observations
   array [ncounts] int<lower=1> year; // year index
   array [ncounts] int<lower=1> route; // route index
@@ -95,7 +98,7 @@ model {
   
   
   //spatial iCAR intercepts and slopes by strata
-  sdalpha ~ normal(0,2); //prior on sd of intercept variation
+ sdalpha ~ normal(0,sd_alpha_prior); //prior on sd of intercept variation
 
   sdbeta_rand ~ gamma(3,30);//zero-avoiding prior on sd of slope spatial variation w mean = 0.1 and 99% < 0.3
 

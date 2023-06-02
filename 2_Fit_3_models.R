@@ -76,6 +76,13 @@ if(spp1 == "nonspatial"){
   
 }
 
+# slightly more informative prior on sdalpha intercept sd
+# this seems to help for low-abundance species where the 
+# half-normal sd = 2 prior includes a lot of prior mass at extreme values
+# e.g., 100 fold changes in mean abundance, when the counts range from 0 - 2
+# alternate prior sets the sd of the intercept variance to the observed sd
+# of mean counts among all routes. This prior helps convergence for some
+# species (some of the birds of prey and waterbirds that have very low abundance)
 if(rerun){
   tmp <- data.frame(route = stan_data$route,count = stan_data$count) %>% 
     group_by(route) %>% 

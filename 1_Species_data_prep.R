@@ -14,22 +14,7 @@ source("functions/posterior_summary_functions.R") ## functions similar to tidyba
 
 output_dir <- "output"
 
-# 
-# if(!dir.exists("Figures")){
-#   dir.create("Figures")
-# }
-# if(!dir.exists("data/maps/")){
-#   if(!dir.exists("data/")){
-#     dir.create("data/")
-#   }
-#   dir.create("data/maps/")
-# }
-# if(!dir.exists(output_dir)){
-#   dir.create(output_dir)
-# }
-# if(!dir.exists("trends")){
-#   dir.create("trends")
-# }
+
 
 
 # load and stratify CASW data ---------------------------------------------
@@ -66,17 +51,6 @@ sp_small_range <- nrecs_sp %>%
          english != "Black Tern")
 
 
-## this list should include all of the species that we're interested in for the grasslands project
-# species_list <- c("Baird's Sparrow",
-#                   "Black-throated Sparrow",
-#                   "Cassin's Sparrow",
-#                   "Golden-winged Warbler",
-#                   "Canyon Towhee",
-#                   "Lark Bunting",
-#                   "Phainopepla",
-#                   "Curve-billed Thrasher",
-#                   "Varied Thrush",
-#                   "Western Bluebird")
 
 species_list <- as.character(sp_small_range$english)
 saveRDS(species_list,"data/species_to_include_4_model_comparison.rds")
