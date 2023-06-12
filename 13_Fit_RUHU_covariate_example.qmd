@@ -13,7 +13,7 @@ execute:
 bibliography: references_RUHU.bib
 ---
 
-##Model structure
+## Model structure
 
 The model is an elaboration of the iCAR route-level trend model, where the route-level intercepts and slopes are additive combinations of a component that is a function of a route-level predictor and a residual component, estimated either with the iCAR structure or a non-spatial random effect. The route-level predictors are derived from a habitat modeling study for Rufous Hummingbirds (details below). The mean habitat suitability within a buffer of the BBS route-path is used as a predictor on the intercept (i.e., the mean relative abundance on a given route). The rate of change in habitat suitability over time within the same buffer was used as a predictor on the slope (i.e., the trend in the species' abundance). This model structure relies on relatively simple assumptions that the amount of habitat around a BBS route should predict the number of individual birds, and that the change in the amount of habitat should predict the change in the number of birds.
 

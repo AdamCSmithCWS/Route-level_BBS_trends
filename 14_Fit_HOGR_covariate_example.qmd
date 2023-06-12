@@ -1,0 +1,258 @@
+---
+title: "Horned Grebe weather covariates"
+format: pdf
+fig-width: 7
+fig-height: 8
+editor: visual
+execute: 
+  echo: true
+  include: true
+  warning: false
+  error: false
+  eval: false
+bibliography: references_HOGR.bib
+---
+
+## Model structure
+
+The model is an elaboration of the iCAR route-level trend model, where the route-level intercepts and slopes are estimates of relative abundances and trends, after accounting for the effects of annual fluctuations caused by route-level annual weather predictors. The route-level predictors are derived from a study of the effects of moisture and drought patterns on Horned Grebe trends in Canada. The annual temperature and precipitation in the region near each BBS route is used to predict annual counts of Horned Grebe on each BBS survey. Annual fluctuations in moisture (precipitation and temperature) have a strong influence on waterbirds in the Prairie Pothole region of Canada. These annual fluctuations complicate assessments of a possible long-term decline in the species' population. This model structure was designed to estimate the long-term rate of population change that is not caused by annual variations in temperature and precipitation.
+
+The model is based on the iCAR models in the main paper, but includes count-level predictors for the effects of precipitation and temperature.
+
+$$ C_{r,j,t}=Negative\ Binomial\left(\lambda_{r,j,t},\phi\right) $$
+
+$$ log\left(\lambda_{r,j,t}\right)=\alpha_r+\beta_r\ast\left(t-t_m\right)+\rho_r*precip_{r,t}+\delta_r*temp_{r,t}+ηΙj,t+ωj $$ 
+
+We modeled the observed counts ($C_{r,j,t}$) of Rufous Hummingbirds on route-r, in year-t, by observer-j as as realizations of a negative binomial distribution, with mean $\lambda_{r,j,t}$ and inverse dispersion parameter $\phi$. The log of the mean ($\lambda_{r,j,t}$) of the negative binomial distribution was modeled as an additive combination of route-level intercepts ($\alpha_r$), observer-effects ($\omega_j$), and a first-year observer-effect ($\eta I[j,t]$), and route-level slope parameters ($\beta_r$) for the continuous effect of year ($t$) centered on the mid-year of the time-series ($t_m$).
+
+We estimated the effect of annual precipitation and temperature on BBS counts as additive and independent effects of a route-specific effect of precipitation ($\rho_r*precip_{r,t}$) and a route-specific coefficient for the effect of temperature ($\delta_r*temp_{r,t}$). Where $precip_{r,t}$ and $temp_{r,t}$ represent the annual fluctuation in precipitation and temperature respectively, centered on the mean across years for each route, to ensure estimability. 
+The effects of temperature and precipitation were allowed to vary among routes, but were centered on a mean hyperparameter. 
+$$
+\rho_r=Normal(P,\sigma_{\rho})
+$$
+$$
+\delta_r=Normal(\Delta,\sigma_{\rho})
+$$
+
+
+
+
+
+```{r setup, eval=TRUE}
+
+library(bbsBayes)#original version of bbsBayes package
+library(tidyverse)
+library(sf)
+library(cmdstanr)
+library(patchwork)
+
+output_dir <- "output"
+species <- "Horned Grebe" 
+source("functions/neighbours_define_voronoi.R") ## function to define neighbourhood relationships
+source("functions/prepare-data-alt.R") ## small alteration of the bbsBayes function
+source("functions/get_basemap_function.R") ## loads one of the bbsBayes strata maps
+strat = "bbs_usgs"
+model = "slope"
+
+strat_data <- bbsBayes::stratify(by = strat)
+
+
+species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
+
+spp <- "_moisture_"
+
+exp_t <- function(x){
+  y <- (exp(x)-1)*100
+}
+
+firstYear <- 1975
+lastYear <- 2017
+
+
+out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
+
+
+
+
+sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
+
+
+### this is the alternate prepare data function - modified from bbsBayes
+jags_data = prepare_data(strat_data = strat_data,
+                              species_to_run = species,
+                              model = model,
+                              #n_knots = 10,
+                              min_year = firstYear,
+                              max_year = lastYear,
+                              min_n_routes = 1,
+                         min_max_route_years = 1)# spatial neighbourhood define --------------------------------------------
+
+# strata map of one of the bbsBayes base maps
+# helps group and set boundaries for the route-level neighbours,
+## NOT directly used in the model
+strata_map  <- get_basemap(strata_type = strat,
+                           transform_laea = TRUE,
+                           append_area_weights = FALSE) %>% 
+  filter(COUNTRY == "CA")
+
+
+#create list of routes and locations to ID routes that are not inside of original strata (some off-shore islands)
+route_map1 = unique(data.frame(route = jags_data$route,
+                              strat = jags_data$strat_name,
+                              Latitude = jags_data$Latitude,
+                              Longitude = jags_data$Longitude))
+
+#create spatial object of above
+route_map1 = st_as_sf(route_map1,coords = c("Longitude","Latitude"))
+st_crs(route_map1) <- 4269 #NAD83 commonly used by US federal agencies
+
+#reconcile the projections of routes and base bbs strata
+route_map1 = st_transform(route_map1,crs = st_crs(strata_map))
+
+#drops the routes geographically outside of the strata (some offshore islands) 
+# and adds the strat indicator variable to link to model output
+strata_map_buf <- strata_map %>% 
+  filter(ST_12 %in% route_map1$strat) %>% 
+  summarise() %>% 
+  st_buffer(.,10000) #drops any routes with start-points > 10 km outside of strata boundaries
+realized_routes <- route_map1 %>% 
+  st_join(.,strata_map_buf,
+          join = st_within,
+          left = FALSE) 
+
+
+
+# reorganizes data after routes were dropped outside of strata
+new_data <- data.frame(strat_name = jags_data$strat_name,
+                       strat = jags_data$strat,
+                       route = jags_data$route,
+                       strat = jags_data$strat_name,
+                       Latitude = jags_data$Latitude,
+                       Longitude = jags_data$Longitude,
+                       count = jags_data$count,
+                       year = jags_data$year,
+                       firstyr = jags_data$firstyr,
+                       ObsN = jags_data$ObsN,
+                       r_year = jags_data$r_year) %>% 
+  filter(route %in% realized_routes$route)
+
+
+# Link covariates and counts ----------------------------------------------
+
+# Load covariate data -------------------------------------------------------
+
+hsi <- read.csv("data/MeanHSI_BBSRoute_yearly.csv")
+
+
+
+
+```
+
+
+```{r}
+
+
+
+load(sp_data_file)
+
+  mod.file = paste0("models/slope",spp,"route_NB.stan")
+  
+# trend habitat effects are not changed, but the intercept effect is
+# removes the optional spatial components for intercepts 
+stan_data[["fit_spatial"]] <- 0 # this sets an option in the model
+# to estimate the residual intercept component using a simple random
+# effect, instead of a spatial one. This allows the model to estimate
+# variation in abundance that is not predicted by local habitat suitability
+# but does not fit an inherently spatial residual structure
+# setting this fit_spatial value to 1 uses the iCAR structure to model
+# a spatially explicit residual term
+
+```
+
+The `stan_data[["fit_spatial"]] <- 0` line sets a `false` conditional statement in the data list that allows the model to estimate the residual intercept component using a simple random effect, instead of a spatial one. This allows the model to estimate variation in abundance that is not predicted by local habitat suitability but does not fit an inherently spatial residual structure setting this `stan_data[["fit_spatial"]] <- 1` results in a true conditional statement and uses the iCAR structure to model a spatially explicit residual term on the intercept.
+
+```{r model-fit}
+
+slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
+
+
+
+stanfit <- slope_model$sample(
+  data=stan_data,
+  refresh=400,
+  iter_sampling=2000,
+  iter_warmup=2000,
+  parallel_chains = 4)
+
+summ <- stanfit$summary()
+print(paste(species, stanfit$time()[["total"]]))
+
+saveRDS(stanfit,
+        paste0(output_dir,"/",out_base,"_stanfit.rds"))
+
+saveRDS(summ,
+        paste0(output_dir,"/",out_base,"_summ_fit.rds"))
+
+summ %>% arrange(-rhat)
+
+
+
+```
+
+## Fitting the model
+
+Before fitting the model, we prepared the BBS counts, the neighbourhood structures necessary to estimate the iCAR residual spatial component, and joined them to the habitat suitablity predictors. The full code and data necessary to replicate the data-preparation is available in the online supplement. In brief, we selected all routes on which the species had been observed during and for which we had GIS route-path information that would allow us to estimate the route-specific annual habitat suitability values.
+
+We fit the model using the probablistic programming language Stan [@standevelopmentteam2022], accessed through the R-package `cmdstanr` [@gabry2022]. We used a warm-up of 2000 iterations, and `cmdstanr` default settings for other arguments, followed by a draw of 2000 samples from which we estimated the posterior distributions. All parameters in all models converged based on Rhat \< 1.02 and bulk effective sample sizes \> 500.
+
+\newpage
+
+## Results
+
+```{r echo=FALSE, eval=TRUE}
+firstYear <- 2006
+lastYear <- 2021
+
+hypers_out <- readRDS(paste0(output_dir,"/",out_base,"_summ_fit.rds"))
+
+hab_eff <- hypers_out %>% 
+  filter(variable == "rho_ALPHA_hab") %>% 
+  select(mean,q5,q95) %>% 
+  unlist() %>% 
+  signif(.,2)
+hab_eff <- paste0(hab_eff["mean"]," ","[",hab_eff["q5"],
+                 "-",hab_eff["q95"],"]")
+
+hab_slope <- hypers_out %>% 
+  filter(variable == "rho_BETA_hab") %>% 
+  select(mean,q5,q95) %>% 
+  unlist() %>% 
+  signif(.,2)
+hab_slope <- paste0(hab_slope["mean"]," ","[",hab_slope["q5"],
+                 "-",hab_slope["q95"],"]")
+
+
+chtotal <- hypers_out %>% 
+  filter(variable == "CH") %>% 
+  select(mean,q5,q95) %>% 
+  unlist() %>% 
+  signif(.,2)
+chtotal <- paste0(chtotal["mean"],"% ","[",chtotal["q5"],
+                 "-",chtotal["q95"],"]")
+
+```
+
+During the 15-years from 2006-2021, the species overall population declined steeply. The model estimated an overall change in the population of approximately `r chtotal`. Trends were negative across the species' range, but most negative in the coastal regions where the species is also most abundant (Figure 1). The effect of habitat suitability on mean relative abundance was strong and positive ( $P_{\alpha}$ = `r hab_eff`), and this effect was robust, whether the residual abundance component was spatially autocorrellated or random. There was a clear positive effect of change in the habitat suitability on trends, such that routes with habitat-loss had more negative population trends $P_{\beta}$ = `r hab_slope`. The greater loss of habitat in the coastal region accounts for most of the increased rates of decline in that region (Figure 2), the residual trend component alone (Figure 2, right panel) does not show the same coastal-decline pattern.
+
+```{r out.height="100%", eval=TRUE, echo=FALSE, include=TRUE}
+#| include: true
+#| label: figure-2
+#| fig-cap: "Map of the trends for Rufous Hummingbird from 2006-2021 The colours represent the trends in the uppper panel and the relative abundance in the lower panel. The left panel represents the full estimated trends and abundance on each route, including both the effect of habitat-suitability and the residual component not related to habitat. The right panel represents the trends and relative abundances after removing the effect of habitat-suitability. In the top-left panel, the greater declines in coastal regions are evident from the darker red points compared to the top-right panel. In the bottom-left panel, the higher abundance near the coast is evident from the lighter colours. The bottom-right panel shows much more even relative abundance across the species' range, showing that habitat suitability accounts for much of the variation in abundance"
+map_save <- readRDS(paste0("Figures/saved_map_RUHU_covariate_",firstYear,".rds"))
+print(map_save)
+
+```
+
+\newpage
+
+## References
