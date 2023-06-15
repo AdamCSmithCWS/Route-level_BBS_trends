@@ -10,7 +10,6 @@ execute:
   warning: false
   error: false
   eval: false
-bibliography: references_HOGR.bib
 ---
 
 ## Model structure
@@ -23,19 +22,12 @@ $$ C_{r,j,t}=Negative\ Binomial\left(\lambda_{r,j,t},\phi\right) $$
 
 $$ log\left(\lambda_{r,j,t}\right)=\alpha_r+\beta_r\ast\left(t-t_m\right)+\rho_r*precip_{r,t}+\delta_r*temp_{r,t}+ηΙj,t+ωj $$ 
 
-We modeled the observed counts ($C_{r,j,t}$) of Rufous Hummingbirds on route-r, in year-t, by observer-j as as realizations of a negative binomial distribution, with mean $\lambda_{r,j,t}$ and inverse dispersion parameter $\phi$. The log of the mean ($\lambda_{r,j,t}$) of the negative binomial distribution was modeled as an additive combination of route-level intercepts ($\alpha_r$), observer-effects ($\omega_j$), and a first-year observer-effect ($\eta I[j,t]$), and route-level slope parameters ($\beta_r$) for the continuous effect of year ($t$) centered on the mid-year of the time-series ($t_m$).
+We modeled the observed counts ($C_{r,j,t}$) of Horned Grebes on route-r, in year-t, by observer-j as as realizations of a negative binomial distribution, with mean $\lambda_{r,j,t}$ and inverse dispersion parameter $\phi$. The log of the mean ($\lambda_{r,j,t}$) of the negative binomial distribution was modeled as an additive combination of route-level intercepts ($\alpha_r$), observer-effects ($\omega_j$), and a first-year observer-effect ($\eta I[j,t]$), and route-level slope parameters ($\beta_r$) for the continuous effect of year ($t$) centered on the mid-year of the time-series ($t_m$).
 
-We estimated the effect of annual precipitation and temperature on BBS counts as additive and independent effects of a route-specific effect of precipitation ($\rho_r*precip_{r,t}$) and a route-specific coefficient for the effect of temperature ($\delta_r*temp_{r,t}$). Where $precip_{r,t}$ and $temp_{r,t}$ represent the annual fluctuation in precipitation and temperature respectively, centered on the mean across years for each route, to ensure estimability. 
-The effects of temperature and precipitation were allowed to vary among routes, but were centered on a mean hyperparameter. 
+We estimated the effect of the number of ponds surrounding each route in a given year on BBS counts as a spatially-varying coefficient representing the route-specific effect of local ponds ($\rho_r*ponds_{r,t}$). Where $ponds_{r,t}$ represents the log(1 + number of ponds) surrounding BBS route $r$ in year $t$. These values were centered on their mean across years for each route, to ensure we could separately estimate the route-level intercepts and the effects of the annual variations in ponds. The effects of ponds at each route were centered on a mean hyperparameter $P$, and allowed to vary among routes using the same iCAR spatial structure as for the slopes and intercepts. 
 $$
 \rho_r=Normal(P,\sigma_{\rho})
 $$
-$$
-\delta_r=Normal(\Delta,\sigma_{\rho})
-$$
-
-
-
 
 
 ```{r setup, eval=TRUE}
@@ -51,10 +43,10 @@ species <- "Horned Grebe"
 source("functions/neighbours_define_voronoi.R") ## function to define neighbourhood relationships
 source("functions/prepare-data-alt.R") ## small alteration of the bbsBayes function
 source("functions/get_basemap_function.R") ## loads one of the bbsBayes strata maps
-strat = "bbs_usgs"
+
+strat = "bbs_usgs" # standard USGS BBS strata for neighbourhoods and plotting
 model = "slope"
 
-strat_data <- bbsBayes::stratify(by = strat)
 
 
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
@@ -71,10 +63,16 @@ lastYear <- 2017
 
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
-
-
-
 sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
+
+
+```
+
+
+
+```{r data_prep, eval=FALSE, echo=FALSE}
+
+strat_data <- bbsBayes::stratify(by = strat)
 
 
 ### this is the alternate prepare data function - modified from bbsBayes
@@ -141,9 +139,174 @@ new_data <- data.frame(strat_name = jags_data$strat_name,
 
 # Load covariate data -------------------------------------------------------
 
-hsi <- read.csv("data/MeanHSI_BBSRoute_yearly.csv")
+clim <- read.csv("data/HOGR_climate_covariates.csv")
+
+clim2 <- read.csv("data/HOGR_ponds_buffer.csv")
+### include the ponds variable
+clim <- clim %>% 
+  inner_join(.,clim2,by = c("Route" = "ProvRoute",
+                            "Year")) %>% 
+  filter(Year >= firstYear,
+         Year <= lastYear) %>% 
+  mutate(route =  paste(trunc(Route/1000),as.integer(str_sub(Route,nchar(Route)-2)),
+                        sep = "-")) %>%
+  mutate(prec_scale = prec/sd(prec),
+         temp_scale = maxt/sd(maxt),
+         pond_scale = log(Ponds+1)) %>% 
+  group_by(route) %>% 
+  mutate(prec_c = prec_scale-mean(prec_scale),
+         temp_c = temp_scale-mean(temp_scale),
+         pond_c = pond_scale-mean(pond_scale,na.rm = TRUE)) %>% 
+  rename(r_year = Year) %>% 
+  select(-Route) %>% 
+  drop_na()
+
+test1 <- clim %>% 
+  group_by(route) %>% 
+  summarise(m_prec = mean(prec_c),
+            m_temp = mean(temp_c),
+            m_pond = mean(pond_c),
+            sd_pred = sd(prec_c),
+            sd_temp = sd(temp_c),
+            sd_pond = sd(pond_c)) 
+
+## drop all BBS data with no climate info
+new_data <- new_data %>% 
+  inner_join(.,clim,
+             by = c("route","r_year"))
+
+strata_list <- data.frame(ST_12 = unique(new_data$strat_name),
+                          strat = unique(new_data$strat))
 
 
+realized_strata_map <- strata_map %>%
+  filter(ST_12 %in% strata_list$ST_12)
+
+# Spatial neighbours set up --------------------
+
+new_data$routeF <- as.integer(factor((new_data$route))) #main route-level integer index
+
+#create a data frame of each unique route in the species-specific dataset
+route_map = unique(data.frame(route = new_data$route,
+                              routeF = new_data$routeF,
+                              strat = new_data$strat_name,
+                              Latitude = new_data$Latitude,
+                              Longitude = new_data$Longitude))
+
+
+# reconcile duplicate spatial locations -----------------------------------
+# adhoc way of separating different routes with the same starting coordinates
+# this shifts the starting coordinates of teh duplicates by ~1.5km to the North East 
+# ensures that the duplicates have a unique spatial location, but remain very close to
+# their original location and retain reasonable neighbourhood relationships
+# these duplicates happen when a "new" route is established (i.e., a route is re-named) 
+# because some large proportion
+# of the end of a route is changed, but the start-point remains the same
+dups = which(duplicated(route_map[,c("Latitude","Longitude")]))
+while(length(dups) > 0){
+  route_map[dups,"Latitude"] <- route_map[dups,"Latitude"]+0.01 #=0.01 decimal degrees ~ 1km
+  route_map[dups,"Longitude"] <- route_map[dups,"Longitude"]+0.01 #=0.01 decimal degrees ~ 1km
+  dups = which(duplicated(route_map[,c("Latitude","Longitude")]))
+  
+}
+dups = which(duplicated(route_map[,c("Latitude","Longitude")])) 
+if(length(dups) > 0){stop(paste(spec,"At least one duplicate route remains"))}
+
+
+
+#create spatial object from route_map dataframe
+route_map = st_as_sf(route_map,coords = c("Longitude","Latitude"))
+st_crs(route_map) <- 4269 #NAD83 commonly used by US federal agencies
+
+
+#reproject teh routes spatial object ot match the strata-map in equal area projection
+route_map = st_transform(route_map,crs = st_crs(strata_map))
+
+## custom function that returns the adjacency data necessary for the stan model
+## also exports maps and saved data objects to plot_dir
+
+## this function generates a Voronoi tesselation with each route start-point
+## at teh centre of the voronoi polygons.
+## it then clips the tesselated surface using an intersection of the strata map 
+## and a concave polygon surrounding the route start locations
+## this clipping ensures that routes at the edges of the species range are not able
+## to be considered neighbours with other very-distant edge-routes and retains
+## the complex shape of many species distributions (e.g., species with boreal and 
+## mountainous distributions, or forest species that span either
+## side of the great plains such as Pileated Woodpecker)
+## it also forces a completely connected network of routes. So if some portions of the 
+## species range are separated by gaps (e.g., intervening BBS strata without any routes)
+## it forces a neighbourhood connection between the closest pair of routes that would
+## bridge the gap (and any other routes within 10% of the distance of the closest pair)
+car_stan_dat <- neighbours_define_voronoi(real_point_map = route_map,
+                                  species = species,
+                                  strat_indicator = "routeF",
+                                  strata_map = realized_strata_map,
+                                  concavity = 1,
+                                  save_plot_data = TRUE,
+                                  plot_dir = "data")#concavity argument from concaveman()
+	
+## a relative measure of concavity. 1 results in a relatively detailed shape, Infinity results in a convex hull.
+
+
+pdf(paste0("data/maps/route_map_",firstYear,"-",lastYear,"_",species_f,".pdf"))
+print(car_stan_dat$map)
+dev.off()
+
+
+# # generate GAM predictor basis
+# gam_prec <- gam_basis(new_data$prec_c,
+#                       sm_name = "prec")
+# gam_temp <- gam_basis(new_data$temp_c,
+#                       sm_name = "temp")
+
+
+stan_data <- list()
+stan_data[["count"]] <- new_data$count
+stan_data[["ncounts"]] <- length(new_data$count)
+stan_data[["strat"]] <- new_data$strat
+stan_data[["route"]] <- new_data$routeF
+stan_data[["year"]] <- new_data$year
+stan_data[["firstyr"]] <- new_data$firstyr
+ stan_data[["pond"]] <- new_data$pond_c
+# stan_data[["temp"]] <- new_data$temp_c
+stan_data[["fixedyear"]] <- jags_data$fixedyear
+
+
+stan_data[["nyears"]] <- max(new_data$year)
+stan_data[["observer"]] <- as.integer(factor((new_data$ObsN)))
+stan_data[["nobservers"]] <- max(stan_data$observer)
+
+
+
+stan_data[["N_edges"]] <- car_stan_dat$N_edges
+stan_data[["node1"]] <- car_stan_dat$node1
+stan_data[["node2"]] <- car_stan_dat$node2
+stan_data[["nroutes"]] <- max(stan_data$route)
+stan_data[["sd_alpha_prior"]] <- 2
+
+# stan_data[["temp_pred_basis"]] <- gam_temp$temp_basis
+# stan_data[["nknots_temp"]] <- gam_temp$nknots_temp
+# stan_data[["temp_vis_basis"]] <- gam_temp$temp_basispred
+
+
+# stan_data[["prec_pred_basis"]] <- gam_prec$prec_basis
+# stan_data[["nknots_prec"]] <- gam_prec$nknots_prec
+# stan_data[["prec_vis_basis"]] <- gam_prec$prec_basispred
+
+
+if(car_stan_dat$N != stan_data[["nroutes"]]){stop("Some routes are missing from adjacency matrix")}
+
+dist_matrix_km <- dist_matrix(route_map,
+                              strat_indicator = "routeF")
+save(list = c("stan_data",
+              "new_data",
+              "route_map",
+              "realized_strata_map",
+              "firstYear",
+              "car_stan_dat",
+              "dist_matrix_km"),
+     file = sp_data_file)
 
 
 ```
@@ -153,25 +316,16 @@ hsi <- read.csv("data/MeanHSI_BBSRoute_yearly.csv")
 
 
 
-load(sp_data_file)
+ 
 
-  mod.file = paste0("models/slope",spp,"route_NB.stan")
-  
-# trend habitat effects are not changed, but the intercept effect is
-# removes the optional spatial components for intercepts 
-stan_data[["fit_spatial"]] <- 0 # this sets an option in the model
-# to estimate the residual intercept component using a simple random
-# effect, instead of a spatial one. This allows the model to estimate
-# variation in abundance that is not predicted by local habitat suitability
-# but does not fit an inherently spatial residual structure
-# setting this fit_spatial value to 1 uses the iCAR structure to model
-# a spatially explicit residual term
 
 ```
 
-The `stan_data[["fit_spatial"]] <- 0` line sets a `false` conditional statement in the data list that allows the model to estimate the residual intercept component using a simple random effect, instead of a spatial one. This allows the model to estimate variation in abundance that is not predicted by local habitat suitability but does not fit an inherently spatial residual structure setting this `stan_data[["fit_spatial"]] <- 1` results in a true conditional statement and uses the iCAR structure to model a spatially explicit residual term on the intercept.
+
 
 ```{r model-fit}
+load(sp_data_file)
+mod.file = paste0("models/slope",spp,"route_NB.stan")
 
 slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
 
@@ -194,65 +348,242 @@ saveRDS(summ,
         paste0(output_dir,"/",out_base,"_summ_fit.rds"))
 
 summ %>% arrange(-rhat)
+```
+
+
+Then fit an indentical model without the covariate for comparison of trends.
+
+```{r}
+
+load(sp_data_file)
+
+mod.file = paste0("models/slope_iCAR_route_NB.stan")
+
+slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
+
+stan_data[["pond"]] <- NULL
+
+
+stanfit_simple <- slope_model$sample(
+  data=stan_data,
+  refresh=400,
+  iter_sampling=2000,
+  iter_warmup=2000,
+  parallel_chains = 4)
+
+summ_simple <- stanfit_simple$summary()
+print(paste(species, stanfit_simple$time()[["total"]]))
+
+saveRDS(stanfit_simple,
+        paste0(output_dir,"/",out_base,"_simple_stanfit.rds"))
+
+saveRDS(summ_simple,
+        paste0(output_dir,"/",out_base,"_simple_summ_fit.rds"))
 
 
 
 ```
 
+
 ## Fitting the model
 
-Before fitting the model, we prepared the BBS counts, the neighbourhood structures necessary to estimate the iCAR residual spatial component, and joined them to the habitat suitablity predictors. The full code and data necessary to replicate the data-preparation is available in the online supplement. In brief, we selected all routes on which the species had been observed during and for which we had GIS route-path information that would allow us to estimate the route-specific annual habitat suitability values.
+To fit the model, we prepared the BBS counts, the neighbourhood structures necessary to estimate the iCAR trend and covariate spatial components, and joined the climate predictor to the data. The full code and data necessary to replicate the data-preparation is available in the online supplement. In brief, we selected all routes on which the species had been observed in the years 1975 - 2017, and for which we had climate data (Prairie-pothole region of Canada).
 
 We fit the model using the probablistic programming language Stan [@standevelopmentteam2022], accessed through the R-package `cmdstanr` [@gabry2022]. We used a warm-up of 2000 iterations, and `cmdstanr` default settings for other arguments, followed by a draw of 2000 samples from which we estimated the posterior distributions. All parameters in all models converged based on Rhat \< 1.02 and bulk effective sample sizes \> 500.
+
+We also fit a simpler model without the covariate information to the same data, so that we could compare the trend estimates with and without excluding the effects of the annual fluctuations in ponds.
 
 \newpage
 
 ## Results
 
 ```{r echo=FALSE, eval=TRUE}
-firstYear <- 2006
-lastYear <- 2021
 
-hypers_out <- readRDS(paste0(output_dir,"/",out_base,"_summ_fit.rds"))
+load(sp_data_file)
+firstYear <- 1975
+lastYear <- 2017
 
-hab_eff <- hypers_out %>% 
-  filter(variable == "rho_ALPHA_hab") %>% 
+summ <- readRDS(paste0(output_dir,"/",out_base,"_summ_fit.rds"))
+summ_simple <- readRDS(paste0(output_dir,"/",out_base,"_simple_summ_fit.rds"))
+
+
+
+RHO <- summ %>% 
+  filter(variable == "RHO")
+BETA <- summ %>% 
+  filter(variable == "BETA") %>% 
+  mutate(across(2:7,~exp_t(.x)))
+
+
+pond_eff <- summ %>% 
+  filter(variable == "RHO") %>% 
   select(mean,q5,q95) %>% 
   unlist() %>% 
   signif(.,2)
-hab_eff <- paste0(hab_eff["mean"]," ","[",hab_eff["q5"],
-                 "-",hab_eff["q95"],"]")
-
-hab_slope <- hypers_out %>% 
-  filter(variable == "rho_BETA_hab") %>% 
-  select(mean,q5,q95) %>% 
-  unlist() %>% 
-  signif(.,2)
-hab_slope <- paste0(hab_slope["mean"]," ","[",hab_slope["q5"],
-                 "-",hab_slope["q95"],"]")
+pond_eff <- paste0(pond_eff["mean"]," ","[",pond_eff["q5"],
+                     " : ",pond_eff["q95"],"]")
 
 
-chtotal <- hypers_out %>% 
-  filter(variable == "CH") %>% 
-  select(mean,q5,q95) %>% 
-  unlist() %>% 
-  signif(.,2)
-chtotal <- paste0(chtotal["mean"],"% ","[",chtotal["q5"],
-                 "-",chtotal["q95"],"]")
+BETA_simple <- summ_simple %>% 
+  filter(variable == "BETA") %>% 
+  mutate(across(2:7,~exp_t(.x)))
+
+
+BETA_eff <- paste0(signif(BETA["mean"],2)," %/year (moisture removed) : ",signif(BETA_simple["mean"],2)," %/year")
+
+
+
+
+
+exp_t <- function(x){
+  y <- (exp(x)-1)*100
+}
+# plot trends -------------------------------------------------------------
+
+
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")
+
+
+strata_bounds <- st_union(route_map) #union to provide a simple border of the realised strata
+bb = st_bbox(strata_bounds)
+xlms = as.numeric(c(bb$xmin,bb$xmax))
+ylms = as.numeric(c(bb$ymin,bb$ymax))
+
+betas1 <- summ %>% 
+  filter(grepl("beta[",variable,fixed = TRUE)) %>% 
+  mutate(across(2:7,~exp_t(.x)),
+         routeF = as.integer(str_extract(variable,"[[:digit:]]{1,}")),
+         parameter = "After removing pond effect") %>% 
+  select(routeF,mean,sd,parameter) %>% 
+  rename(trend = mean,
+         trend_se = sd)
+
+rho1 <- summ %>% 
+  filter(grepl("rho[",variable,fixed = TRUE)) %>% 
+  mutate(routeF = as.integer(str_extract(variable,"[[:digit:]]{1,}")),
+         parameter = "Pond effect") %>% 
+  select(routeF,median,sd,q5) %>% 
+  rename(ponds = median,
+         ponds_se = sd,
+         ponds_lci = q5)
+betas1 <- betas1 %>% 
+  inner_join(.,rho1,
+             by = "routeF")
+
+betas2 <- summ_simple %>% 
+  filter(grepl("beta[",variable,fixed = TRUE)) %>% 
+  mutate(across(2:7,~exp_t(.x)),
+         routeF = as.integer(str_extract(variable,"[[:digit:]]{1,}")),
+         parameter = "Full with pond effect") %>% 
+  select(routeF,mean,sd,parameter) %>% 
+  rename(trend = mean,
+         trend_se = sd)
+
+betas <- bind_rows(betas1,betas2)
+
+plot_map <- route_map %>% 
+  left_join(.,betas,
+            by = "routeF",
+            multiple = "all") 
+
+breaks <- c(-7, -4, -2, -1, -0.5, 0.5, 1, 2, 4, 7)
+lgnd_head <- "Mean Trend\n"
+trend_title <- "Mean Trend"
+labls = c(paste0("< ",breaks[1]),paste0(breaks[-c(length(breaks))],":", breaks[-c(1)]),paste0("> ",breaks[length(breaks)]))
+labls = paste0(labls, " %/year")
+plot_map$Tplot <- cut(plot_map$trend,breaks = c(-Inf, breaks, Inf),labels = labls)
+
+
+map_palette <- c("#a50026", "#d73027", "#f46d43", "#fdae61", "#fee090", "#ffffbf",
+                 "#e0f3f8", "#abd9e9", "#74add1", "#4575b4", "#313695")
+names(map_palette) <- labls
+
+
+
+map <- ggplot()+
+  geom_sf(data = base_strata_map,
+          fill = NA,
+          colour = grey(0.75))+
+  geom_sf(data = plot_map,
+          aes(colour = Tplot,
+              size = trend_se))+
+  scale_size_continuous(range = c(0.05,2),
+                        name = "Mean Count")+
+  scale_colour_manual(values = map_palette, aesthetics = c("colour"),
+                      guide = guide_legend(reverse=TRUE),
+                      name = paste0(lgnd_head))+
+  coord_sf(xlim = xlms,ylim = ylms)+
+  theme_bw()+
+  guides(size = "none")+
+  labs(title = paste(species,firstYear,"-",lastYear,BETA_eff))+
+  facet_wrap(vars(parameter))
+
+plot_map2 <- plot_map %>% 
+  filter(!is.na(ponds))
+map_ponds <- ggplot()+
+  geom_sf(data = base_strata_map,
+          fill = NA,
+          colour = grey(0.75))+
+  geom_sf(data = plot_map2,
+          aes(colour = ponds))+
+  scale_colour_viridis_c(begin = 0.1, end = 0.9,
+                         guide = guide_legend(reverse=TRUE),
+                         name = paste0("Pond effect"))+
+  coord_sf(xlim = xlms,ylim = ylms)+
+  theme_bw()+
+  labs(title = paste(firstYear,"-",lastYear))
+# 
+map_ponds_lc <- ggplot()+
+  geom_sf(data = base_strata_map,
+          fill = NA,
+          colour = grey(0.75))+
+  geom_sf(data = plot_map2,
+          aes(colour = ponds_lci))+
+  scale_colour_viridis_c(begin = 0.1, end = 0.9,
+                         guide = guide_legend(reverse=TRUE),
+                         name = paste0("LCL of Pond effect"))+
+  coord_sf(xlim = xlms,ylim = ylms)+
+  theme_bw()+
+  labs(title = paste(firstYear,"-",lastYear))
+
+
+
+
+map_save <- map/ (map_ponds + map_ponds_lc) + plot_layout(guides = "collect")
+
+
+saveRDS(map_save,paste0("Figures/saved_map_",species_f,"_covariate_",firstYear,".rds"))
+
+
+map_save2 <- map_ponds / map_ponds_lc + plot_layout(guides = "collect")
+
+
+saveRDS(map_save2,paste0("Figures/saved_map2_",species_f,"_covariate_",firstYear,".rds"))
+
+pdf(paste0("Figures/Figure_9.pdf"),
+    height = 8.5,
+    width = 8.5)
+
+
+print(map/ (map_ponds + map_ponds_lc))
+
+
+dev.off()
+
 
 ```
 
-During the 15-years from 2006-2021, the species overall population declined steeply. The model estimated an overall change in the population of approximately `r chtotal`. Trends were negative across the species' range, but most negative in the coastal regions where the species is also most abundant (Figure 1). The effect of habitat suitability on mean relative abundance was strong and positive ( $P_{\alpha}$ = `r hab_eff`), and this effect was robust, whether the residual abundance component was spatially autocorrellated or random. There was a clear positive effect of change in the habitat suitability on trends, such that routes with habitat-loss had more negative population trends $P_{\beta}$ = `r hab_slope`. The greater loss of habitat in the coastal region accounts for most of the increased rates of decline in that region (Figure 2), the residual trend component alone (Figure 2, right panel) does not show the same coastal-decline pattern.
+During the 43-years from 1975-2017, the species overall population declined at a rate of `r signif(BETA_simple["mean"],2)` %/year. After removing the effect of annual variations in the number of ponds surrounding each BBS route, the long-term rate of decline was `r signif(BETA["mean"],2)` %/year. This difference suggests that annual fluctuations in moisture have been responsible for reducing the species' rate of decline. It also suggests that the species' Prairie populations may decline even further, given the predictions for reduced precipitation and higher temperatures in the region with climate change.
+
+The effect of annual fluctuations in the number of ponds was positive across the region, but there was also a spatial gradient in intensity. The effect of number of ponds in a given year was strongest in the western part of the Prairies (Figure S9).  
 
 ```{r out.height="100%", eval=TRUE, echo=FALSE, include=TRUE}
 #| include: true
-#| label: figure-2
-#| fig-cap: "Map of the trends for Rufous Hummingbird from 2006-2021 The colours represent the trends in the uppper panel and the relative abundance in the lower panel. The left panel represents the full estimated trends and abundance on each route, including both the effect of habitat-suitability and the residual component not related to habitat. The right panel represents the trends and relative abundances after removing the effect of habitat-suitability. In the top-left panel, the greater declines in coastal regions are evident from the darker red points compared to the top-right panel. In the bottom-left panel, the higher abundance near the coast is evident from the lighter colours. The bottom-right panel shows much more even relative abundance across the species' range, showing that habitat suitability accounts for much of the variation in abundance"
-map_save <- readRDS(paste0("Figures/saved_map_RUHU_covariate_",firstYear,".rds"))
-print(map_save)
+#| label: figure-S9
+#| fig-cap: "Map of the effect of the number of ponds surrounding each BBS route in a given year on the counts of Horned Grebes, 1975-2010. The colours represent the route-specific coefficient for the effect of the log-transformed count of the number of ponds surrounding each BBS route. The positive values indicate that higher numbers of ponds are correlated with  higher counts of Horned Grebes during a given survey. The left plot shows the posterior mean effects at each route and the right panel shows the lower 95% credible limit for the effect. hat habitat suitability accounts for much of the variation in abundance"
+map_save2 <- readRDS(paste0("Figures/saved_map2_",species_f,"_covariate_",firstYear,".rds"))
+print(map_save2)
 
 ```
 
-\newpage
 
-## References
