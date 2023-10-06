@@ -11,9 +11,12 @@ library(patchwork)
 
 output_dir <- "output"
 output_dir <- "F:/iCAR_route_2021/output"
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")
 
 ## this list should include all of the species that we're interested in for the grasslands project
 species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
+#species_list <- c(species_list,"Blue-headed Vireo")
+
 species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
 
 
@@ -26,18 +29,22 @@ ppy <- function(x){
 }
 # SPECIES LOOP ------------------------------------------------------------
 
-pdf(paste0("Figures/Two_model_comparison_all_species.pdf"),
+outboth_save <- NULL
+re_summarize <- FALSE # set to true if running for the first time
+
+pdf(paste0("Figures/Figure_S3.pdf"),
     height = 10.5,
     width = 7.5)
-
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list_broad){
+for(species in species_list){
 #species <- species_list[2]
-
+  species_latin <- bbsBayes2::search_species(species)
+  species_latin <- paste(species_latin[1,"genus"],species_latin[1,"species"])
+  
   species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
   
-  out_base_temp <- paste0(species_f,"_nonspatial_",firstYear,"_",lastYear)
+  out_base_temp <- paste0(species_f,"_GP_",firstYear,"_",lastYear)
   
   if(!file.exists(paste0(output_dir,"/",out_base_temp,"_summ_fit.rds"))){next}
     
@@ -48,9 +55,9 @@ sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_stan_data.
 
 load(sp_data_file)
 
-
+if(re_summarize){
 outboth <- NULL
-for(spp1 in c("iCAR","nonspatial")){
+for(spp1 in c("BYM","iCAR","nonspatial","GP")){
 
   spp <- paste0("_",spp1,"_")
   
@@ -62,6 +69,7 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
 #stanfit <- readRDS(paste0(output_dir,"/",out_base,"_stanfit.rds"))
+ 
 summ <- readRDS(paste0(output_dir,"/",out_base,"_summ_fit.rds"))
 
 abundance <- summ %>% 
@@ -96,16 +104,40 @@ both <- inner_join(slope,abundance,
                   by = "routeF") %>% 
   mutate(model = spp1)
 
-outboth <- bind_rows(outboth,both)
+outboth <- bind_rows(outboth,both) %>% 
+  mutate(species = species)
+
+saveRDS(outboth,
+        paste0("output/predictions_4_models_",species_f,".RDS"))
+outboth_save <- bind_rows(outboth_save,outboth)
+
 
 } #end models loop
+}else{#end if re_summarize
+
+  outboth <- readRDS(paste0("output/predictions_4_models_",species_f,".RDS"))
+  
+}
+strata_bounds <- st_union(route_map) #union to provide a simple border of the realised strata
+bb = st_bbox(strata_bounds)
+xdif <- as.numeric(bb$xmax - bb$xmin)*1.1
+ydif <- as.numeric(bb$ymax - bb$ymin)*1.1
+
+xlms = as.numeric(c(ifelse(bb$xmin > 0,bb$xmin*0.9,bb$xmin*1.1),
+                    bb$xmin + xdif))
+ylms = as.numeric(c(ifelse(bb$ymin > 0,bb$ymin*0.9,bb$ymin*1.1),
+                    bb$ymin + ydif))
+
+
 
 plot_map <- route_map %>% 
   left_join(.,outboth,
             by = "routeF") %>% 
-  mutate(model = factor(model,
-                        levels = c("iCAR","GP","BYM","nonspatial"),
-                        ordered = TRUE))
+  mutate(model = ifelse(model == "nonspatial","Non-spatial",model),
+         model = factor(model,
+                        levels = c("iCAR","GP","BYM","Non-spatial"),
+                        ordered = TRUE),
+         abundance_cv = abundance_sd/abundance_mean)
 
 breaks <- c(-7, -4, -2, -1, -0.5, 0.5, 1, 2, 4, 7)
 lgnd_head <- "Mean Trend\n"
@@ -120,19 +152,10 @@ map_palette <- c("#a50026", "#d73027", "#f46d43", "#fdae61", "#fee090", "#ffffbf
 names(map_palette) <- labls
 
 
-# tmap = ggplot(trend_plot_map)+
-#   #geom_sf(data = realized_strata_map,colour = gray(0.8),fill = NA)+
-#   geom_sf(data = strata_map,colour = gray(0.8),fill = NA)+
-#   geom_sf(aes(colour = Tplot,size = abund))+
-#   scale_size_continuous(range = c(0.05,2),
-#                         name = "Mean Count")+
-#   scale_colour_manual(values = map_palette, aesthetics = c("colour"),
-#                       guide = guide_legend(reverse=TRUE),
-#                       name = paste0(lgnd_head,firstYear,"-",lastYear))+
-#   coord_sf(xlim = xlms,ylim = ylms)+
-#   facet_wrap(vars(version),nrow = 3)
-
 map <- ggplot()+
+  geom_sf(data = base_strata_map,
+          fill = NA,
+          colour = grey(0.75))+
   geom_sf(data = plot_map,
           aes(colour = Tplot,
               size = abundance_mean))+
@@ -141,48 +164,48 @@ map <- ggplot()+
   scale_colour_manual(values = map_palette, aesthetics = c("colour"),
                       guide = guide_legend(reverse=TRUE),
                       name = paste0(lgnd_head,firstYear,"-",lastYear))+
-  labs(title = paste(species, "trends"))+
+  labs(title = paste0(species," (",species_latin,")"),
+       subtitle = paste("Trends"))+
+  theme_bw()+
+  theme(text = element_text(family = "serif",
+                            size = 11,
+                            hjust = 0.5),
+        panel.grid = element_line(colour = grey(0.95)))+
+  coord_sf(xlim = xlms,ylim = ylms)+
   facet_wrap(vars(model))
   
-# pdf(paste0("Figures/Two_model_comparison_",species_f,".pdf"),
-#     height = 5,
-#     width = 8)
-# print(map)
-# dev.off()
+sp_caption <- paste0("Figure S3 (continued). Comparison of the predictions for ",species," (",species_latin,") \n from three spatially explicit models (iCAR, BYM, GP) and a non-spatial model of route-level \n abundance (size of dots) and trends (colours) on individual survey routes from the \n North American Breeding Bird Survey. Each point represents the starting location (first 3-minute point count) \n of the 50-point count 40 km long roadside survey transect")
 
 map_se <- ggplot()+
+  geom_sf(data = base_strata_map,
+          fill = NA,
+          colour = grey(0.75))+
   geom_sf(data = plot_map,
           aes(colour = trend_sd,
-              size = abundance_sd))+
+              size = abundance_cv))+
   scale_size_continuous(range = c(0.05,2),
-                        name = "SE of Mean Count")+
+                        name = "CV of Mean Count")+
   scale_colour_viridis_c(aesthetics = c("colour"),
-                      guide = guide_legend(reverse=TRUE),
-                      name = paste0("SE of Trend",firstYear,"-",lastYear))+
-  labs(title = paste(species, "Standard error"))+
+                         guide = guide_colorbar(reverse=TRUE),
+                         name = paste0("SE of Trend ",firstYear,"-",lastYear))+
+  labs(subtitle = paste("Standard error"))+
+  labs(caption = sp_caption) +
+  theme_bw()+
+  theme(text = element_text(family = "serif",
+                            size = 11),
+        panel.grid = element_line(colour = grey(0.95)),
+        plot.caption = element_text(hjust = 0))+
+  coord_sf(xlim = xlms,ylim = ylms)+
   facet_wrap(vars(model))
-# 
-# pdf(paste0("Figures/Two_SE_model_comparison_",species_f,".pdf"),
-#     height = 5,
-#     width = 8)
-# print(map_se)
-# dev.off()
+
+fullmap <- map / map_se
+print(fullmap)
 
 
-
-
-# pdf(paste0("Figures/Two_model_comparison_",species_f,".pdf"),
-#     height = 5,
-#     width = 8)
-print(map / map_se)
-# dev.off()
 
 
 
 }#end species loop
 
-
 dev.off()
-
-
 

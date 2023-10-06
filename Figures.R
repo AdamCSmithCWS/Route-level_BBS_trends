@@ -12,6 +12,10 @@ library(sf)
 
 load("data/Baird's_Sparrow_route_maps_data.RData")
 
+strata_map2 <- bbsBayes2::load_map("bbs_usgs")
+
+strata_map2 <- st_transform(strata_map2,st_crs(strata_map))
+
 box <- st_as_sfc(st_bbox(strata_map))
 
 xb <- range(st_coordinates(box)[,"X"])
@@ -19,6 +23,7 @@ yb <- range(st_coordinates(box)[,"Y"])
 
 
 ggp1 <- ggplot()+ 
+  geom_sf(data = strata_map2,alpha = 0,colour = grey(0.9))+ 
   geom_sf(data = strata_map,alpha = 0,colour = grey(0.8))+ 
   #geom_sf(data = cov_hull_clip,alpha = 0,colour = grey(0.8))+
   #geom_sf(data = v,alpha = 0,colour = grey(0.9))+
@@ -29,10 +34,15 @@ ggp1 <- ggplot()+
   xlab("")+
   ylab("")+
   coord_sf(xlim = xb,ylim = yb)+
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        text = element_text(family = "serif",
+                          size = 11),
+      panel.grid = element_line(colour = grey(0.95)),
+      plot.caption = element_text(hjust = 0))
 ggp1
 
 ggp2 <- ggplot()+ 
+  geom_sf(data = strata_map2,alpha = 0,colour = grey(0.9))+ 
   geom_sf(data = strata_map,alpha = 0,colour = grey(0.8))+ 
   geom_segment(data=DA,aes(x = long, y = lat,xend=long_to,yend=lat_to),
                inherit.aes = FALSE,linewidth=0.3,colour = grey(0.6)) +
@@ -41,7 +51,11 @@ ggp2 <- ggplot()+
   xlab("")+
   ylab("")+
   coord_sf(xlim = xb,ylim = yb)+
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        text = element_text(family = "serif",
+                            size = 11),
+        panel.grid = element_line(colour = grey(0.95)),
+        plot.caption = element_text(hjust = 0))
 ggp2
 
 
@@ -116,7 +130,7 @@ spp <- paste0("_GP_")
                                           "gp_sq_alpha_beta",
                                           "gp_sq_alpha_alpha"),
                             format = "draws_df") %>% 
-    sample_n(.,100) %>% 
+    sample_n(.,50) %>% 
     left_join(.,dist_sim,by = ".draw") %>% 
     mutate(pred_cov_beta = gp_sim_function(gp_sq_alpha_beta,gp_sq_rho_beta,dist),
            pred_cov_alpha = gp_sim_function(gp_sq_alpha_alpha,gp_sq_rho_alpha,dist),
@@ -237,16 +251,24 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
   
   strata_bounds <- st_union(route_map) #union to provide a simple border of the realised strata
   bb = st_bbox(strata_bounds)
-  xlms = as.numeric(c(bb$xmin,bb$xmax))*1.05
-  ylms = as.numeric(c(bb$ymin,bb$ymax))*1.05
+  xdif <- as.numeric(bb$xmax - bb$xmin)*1.1
+  ydif <- as.numeric(bb$ymax - bb$ymin)*1.1
+  
+  xlms = as.numeric(c(ifelse(bb$xmin > 0,bb$xmin*0.9,bb$xmin*1.1),
+                      bb$xmin + xdif))
+  ylms = as.numeric(c(ifelse(bb$ymin > 0,bb$ymin*0.9,bb$ymin*1.1),
+                      bb$ymin + ydif))
+  
   
   
   plot_map <- route_map %>% 
     left_join(.,outboth,
               by = "routeF") %>% 
-    mutate(model = factor(model,
-                          levels = c("iCAR","GP","BYM","nonspatial"),
-                          ordered = TRUE))
+    mutate(model = ifelse(model == "nonspatial","Non-spatial",model),
+           model = factor(model,
+                          levels = c("iCAR","GP","BYM","Non-spatial"),
+                          ordered = TRUE),
+           abundance_cv = abundance_sd/abundance_mean)
   
   breaks <- c(-7, -4, -2, -1, -0.5, 0.5, 1, 2, 4, 7)
   lgnd_head <- "Mean Trend\n"
@@ -277,6 +299,10 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                         name = paste0(lgnd_head,firstYear,"-",lastYear))+
     coord_sf(xlim = xlms,ylim = ylms)+
     theme_bw()+
+    theme(text = element_text(family = "serif",
+                              size = 11),
+          panel.grid = element_line(colour = grey(0.95)),
+          plot.caption = element_text(hjust = 0))+
     #labs(title = paste(species, "trends"))+
     facet_wrap(vars(model))
   
@@ -286,31 +312,31 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
   print(map)
   dev.off()
   
-  map_se <- ggplot()+
-    geom_sf(data = base_strata_map,
-            fill = NA,
-            colour = grey(0.75))+
-    geom_sf(data = plot_map,
-            aes(colour = trend_sd,
-                size = abundance_sd))+
-    scale_size_continuous(range = c(0.05,2),
-                          name = "SE of Mean Count",
-                          trans = "reverse")+
-    scale_colour_viridis_c(aesthetics = c("colour"),
-                           guide = guide_legend(reverse=TRUE),
-                           name = paste0("SE of Trend",firstYear,"-",lastYear))+
-    coord_sf(xlim = xlms,ylim = ylms)+
-    theme_bw()+
-    #labs(title = paste(species, "Standard error"))+
-    facet_wrap(vars(model))
-  
- # version with teh SE of hte maps
-  pdf(paste0("Figures/Figure_S2.pdf"),
-      height = 10.5,
-      width = 7.5)
-  print(map / map_se)
-  dev.off()
-  
+ #  map_se <- ggplot()+
+ #    geom_sf(data = base_strata_map,
+ #            fill = NA,
+ #            colour = grey(0.75))+
+ #    geom_sf(data = plot_map,
+ #            aes(colour = trend_sd,
+ #                size = abundance_sd))+
+ #    scale_size_continuous(range = c(0.05,2),
+ #                          name = "SE of Mean Count",
+ #                          trans = "reverse")+
+ #    scale_colour_viridis_c(aesthetics = c("colour"),
+ #                           guide = guide_legend(reverse=TRUE),
+ #                           name = paste0("SE of Trend",firstYear,"-",lastYear))+
+ #    coord_sf(xlim = xlms,ylim = ylms)+
+ #    theme_bw()+
+ #    #labs(title = paste(species, "Standard error"))+
+ #    facet_wrap(vars(model))
+ #  
+ # # version with teh SE of hte maps
+ #  pdf(paste0("Figures/Figure_S2.pdf"),
+ #      height = 10.5,
+ #      width = 7.5)
+ #  print(map / map_se)
+ #  dev.off()
+ #  
 
   
   lgnd_head <- "Mean Abundance\n"
@@ -320,14 +346,19 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
             colour = grey(0.75))+
     geom_sf(data = plot_map,
             aes(colour = abundance_mean,
-                size = abundance_sd/abundance_mean))+
+                size = abundance_sd/abundance_mean),
+            alpha = 0.7)+
     scale_size_continuous(range = c(0.05,2),
                           name = "CV Abundance",
                           trans = "reverse")+
-    scale_colour_viridis_c(guide = guide_legend(reverse=TRUE),
+    scale_colour_viridis_c(guide = guide_colourbar(),
                         name = paste0(lgnd_head,firstYear,"-",lastYear))+
     coord_sf(xlim = xlms,ylim = ylms)+
     theme_bw()+
+    theme(text = element_text(family = "serif",
+                              size = 11),
+          panel.grid = element_line(colour = grey(0.95)),
+          plot.caption = element_text(hjust = 0))+
     #labs(title = paste(species, "abundance"))+
     facet_wrap(vars(model))
   
@@ -675,6 +706,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       
     } #end models loop
     
+
+    
+    
     plot_map <- route_map %>% 
       left_join(.,outboth,
                 by = "routeF") %>% 
@@ -865,8 +899,14 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     
       strata_bounds <- st_union(plot_map_out) #union to provide a simple border of the realised strata
       bb = st_bbox(strata_bounds)
-      xlms = as.numeric(c(bb$xmin,bb$xmax))
-      ylms = as.numeric(c(bb$ymin,bb$ymax))
+      xdif <- as.numeric(bb$xmax - bb$xmin)*1.1
+      ydif <- as.numeric(bb$ymax - bb$ymin)*1.1
+      
+      xlms = as.numeric(c(ifelse(bb$xmin > 0,bb$xmin*0.9,bb$xmin*1.1),
+                          bb$xmin + xdif))
+      ylms = as.numeric(c(ifelse(bb$ymin > 0,bb$ymin*0.9,bb$ymin*1.1),
+                          bb$ymin + ydif))
+      
       
   
     
@@ -935,11 +975,8 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     dev.off()
     
     
-    
 
-# Figure 8 - covariate example --------------------------------------------
-
-    
+   
     
   
   

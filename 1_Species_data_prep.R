@@ -48,7 +48,8 @@ sp_small_range <- nrecs_sp %>%
          num_counts > 600,
          obs_route > 4,
          !grepl("(",english,fixed = TRUE),
-         english != "Black Tern")
+         english != "Black Tern") %>% 
+  arrange(AOU)
 
 
 
@@ -59,7 +60,8 @@ saveRDS(species_list,"data/species_to_include_4_model_comparison.rds")
 sp_notsmall_range <- nrecs_sp %>% 
   mutate(obs_route = num_counts/num_routes) %>% 
   filter(num_routes >= 400,
-         !grepl("(",english,fixed = TRUE))
+         !grepl("(",english,fixed = TRUE))%>% 
+  arrange(AOU)
 
 species_list_broad <- as.character(sp_notsmall_range$english)
 saveRDS(species_list_broad,"data/species_to_include_2_model_comparison.rds")
