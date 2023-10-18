@@ -10,27 +10,26 @@ execute:
   warning: false
   error: false
   eval: false
+bibliography: references_HOGR.bib
 ---
 
 ## Model structure
 
-The model is an elaboration of the iCAR route-level trend model, where the route-level intercepts and slopes are estimates of relative abundances and trends, after accounting for the effects of annual fluctuations caused by a route-level annual climate-related predictor. The route-level predictors are derived from a study of the effects of moisture/drought patterns on Horned Grebe trends in Canada. To represent annual variation in available habitat for wetland birds, we used the data collected by USFWS and CWS on the number of ponds (primarily, temporary small wetlands often referred to as "Prairie Potholes") during aerial surveys (Waterfowl Breeding Population and Habitat Survey Data. 1955-2022[https://ecos.fws.gov/ServCat/Reference/Profile/140698]).  Annual fluctuations in moisture have a strong influence on the number of these wetlands available for waterbird habitat in the Prairie Pothole region of Canada. These annual fluctuations could complicate assessments of a possible long-term decline in the species' population, if strong short-term fluctuations in the amount of habitat being surveyed could overwhelm or counter-act longer-term gradual changes in populations. We designed this model to estimate the long-term rate of population change after statistically controlling for the annual variations in available habitat.
+The model is an elaboration of the iCAR route-level trend model, where the route-level intercepts and slopes are estimates of relative abundances and trends, after accounting for the effects of annual fluctuations caused by a route-level annual climate-related predictor. The route-level predictors are derived from a study of the effects of moisture/drought patterns on Horned Grebe trends in Canada. To represent annual variation in available habitat for wetland birds, we used the data collected by USFWS and CWS on the number of ponds (primarily, temporary small wetlands often referred to as "Prairie Potholes") during aerial surveys (Waterfowl Breeding Population and Habitat Survey Data. 1955-2022\[https://ecos.fws.gov/ServCat/Reference/Profile/140698\]). Annual fluctuations in moisture have a strong influence on the number of these wetlands available for waterbird habitat in the Prairie Pothole region of Canada. These annual fluctuations could complicate assessments of a possible long-term decline in the species' population, if strong short-term fluctuations in the amount of habitat being surveyed could overwhelm or counter-act longer-term gradual changes in populations. We designed this model to estimate the long-term rate of population change after statistically controlling for the annual variations in available habitat.
 
 The model is based on the iCAR models in the main paper, but includes count-level predictors for the effects of available habitat.
 
 $$ C_{r,j,t}=Negative\ Binomial\left(\lambda_{r,j,t},\phi\right) $$
 
-$$ log\left(\lambda_{r,j,t}\right)=\alpha_r+\beta_r\ast\left(t-t_m\right)+\rho_r*ponds_{r,t}+ηΙj,t+ωj $$ 
+$$ log\left(\lambda_{r,j,t}\right)=\alpha_r+\beta_r\ast\left(t-t_m\right)+\rho_r*ponds_{r,t}+ηΙj,t+ωj $$
 
 We modeled the observed counts ($C_{r,j,t}$) of Horned Grebes on route-r, in year-t, by observer-j as as realizations of a negative binomial distribution, with mean $\lambda_{r,j,t}$ and inverse dispersion parameter $\phi$. The log of the mean ($\lambda_{r,j,t}$) of the negative binomial distribution was modeled as an additive combination of route-level intercepts ($\alpha_r$), observer-effects ($\omega_j$), and a first-year observer-effect ($\eta I[j,t]$), and route-level slope parameters ($\beta_r$) for the continuous effect of year ($t$) centered on the mid-year of the time-series ($t_m$).
 
 We estimated the effect of the number of ponds surrounding each route in a given year on BBS counts as a spatially-varying coefficient representing the route-specific effect of local ponds ($\rho_r*ponds_{r,t}$). Where $ponds_{r,t}$ represents the log(1 + number of ponds) surrounding BBS route $r$ in year $t$, centered on their mean across years for each route. This route-specific centering ensured we could separately estimate the route-level intercepts and the effects of the annual variations in ponds. The effects of ponds at each route were centered on a mean hyperparameter $P$, and allowed to vary among routes using the same iCAR spatial structure as for the slopes and intercepts ($\rho_r^{\prime}$.
 
-
 $$
 \rho_r= P + \rho^{\prime}_r
-$$
-$$ \rho_r^{\prime}\sim Normal\left(\frac{\sum_{n{\in N}_r}\rho_n^{\prime}}{N_r},\frac{\sigma_{\rho^{\prime}}}{N_r}\right) $$
+$$ $$ \rho_r^{\prime}\sim Normal\left(\frac{\sum_{n{\in N}_r}\rho_n^{\prime}}{N_r},\frac{\sigma_{\rho^{\prime}}}{N_r}\right) $$
 
 Finally, we also fit the same data to the simple iCAR model (i.e., an identical model with no covariates) to compare the difference in estimated trends with and without accounting for the annual variations in available habitat.
 
@@ -71,8 +70,6 @@ sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_covariate_
 
 
 ```
-
-
 
 ```{r data_prep}
 
@@ -342,8 +339,6 @@ saveRDS(summ,
 summ %>% arrange(-rhat)
 ```
 
-
-
 ```{r}
 
 load(sp_data_file)
@@ -375,13 +370,11 @@ saveRDS(summ_simple,
 
 ```
 
-
 ## Fitting the model
 
 To fit the model, we prepared the BBS counts, the neighbourhood structures necessary to estimate the iCAR trend and covariate spatial components, and joined the climate predictor to the data. The full code and data necessary to replicate the data-preparation is available in the online supplement. In brief, we selected all routes on which the species had been observed in the years 1975 - 2017, and for which we had climate data (Prairie-pothole region of Canada).
 
-We fit the model using the probablistic programming language Stan [@standevelopmentteam2022], accessed through the R-package `cmdstanr` [@gabry2022]. We used a warm-up of 2000 iterations, and `cmdstanr` default settings for other arguments, followed by a draw of 2000 samples from which we estimated the posterior distributions. All parameters in all models converged based on Rhat \< 1.02 and bulk effective sample sizes \> 500.
-
+We fit the model using the probabilistic programming language Stan [@standevelopmentteam2022], accessed through the R-package `cmdstanr` [@gabry2022]. We used a warm-up of 2000 iterations, and `cmdstanr` default settings for other arguments, followed by a draw of 2000 samples from which we estimated the posterior distributions. All parameters in all models converged based on Rhat \< 1.02 and bulk effective sample sizes \> 500 [@gelman2020].
 
 \newpage
 
@@ -434,7 +427,8 @@ exp_t <- function(x){
 base_strata_map <- bbsBayes2::load_map("bbs_usgs")
 
 
-strata_bounds <- st_union(route_map) #union to provide a simple border of the realised strata
+strata_bounds <- st_buffer(st_union(route_map), 
+                           dist = 90000) #union to provide a simple border of the realised strata
 bb = st_bbox(strata_bounds)
 xlms = as.numeric(c(bb$xmin,bb$xmax))
 ylms = as.numeric(c(bb$ymin,bb$ymax))
@@ -510,6 +504,8 @@ map <- ggplot()+
 
 plot_map2 <- plot_map %>% 
   filter(!is.na(ponds))
+
+
 map_ponds <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
@@ -517,7 +513,7 @@ map_ponds <- ggplot()+
   geom_sf(data = plot_map2,
           aes(colour = ponds))+
   scale_colour_viridis_c(begin = 0.1, end = 0.9,
-                         guide = guide_legend(reverse=TRUE),
+                         guide = guide_colourbar(reverse=FALSE),
                          name = paste0("Pond effect"))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
@@ -530,7 +526,7 @@ map_ponds_lc <- ggplot()+
   geom_sf(data = plot_map2,
           aes(colour = ponds_lci))+
   scale_colour_viridis_c(begin = 0.1, end = 0.9,
-                         guide = guide_legend(reverse=TRUE),
+                         guide = guide_colourbar(reverse=FALSE),
                          name = paste0("LCL of Pond effect"))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
@@ -555,7 +551,7 @@ pdf(paste0("Figures/Figure_9.pdf"),
     width = 7)
 
 
-print((map_ponds))
+print((map_ponds + labs(title = "")))
 
 
 dev.off()
@@ -565,7 +561,7 @@ dev.off()
 
 During the 43-years from 1975-2017, the species overall population declined at a rate of `r signif(BETA_simple["mean"],2)` %/year. After removing the effect of annual variations in the number of ponds surrounding each BBS route, the long-term rate of decline was `r signif(BETA["mean"],2)` %/year. This difference suggests that annual fluctuations in moisture, such as the relatively high-moisture periods in 2014-2017, have been responsible for reducing the species' rate of decline. It also suggests that the species' Prairie populations may decline even further in the future, given the predictions for reduced precipitation and higher temperatures in the region with ongoing climate change.
 
-The effect of annual fluctuations in the number of ponds was positive across the region: the mean value of $P$ = `r pond_eff`.  but there was also a spatial gradient in intensity. The effect of number of ponds in a given year was strongest in the western part of the Prairies (Figure 1). This spatial pattern makes sense given that the western prairies tend to experience more intense and frequent drought conditions.   
+The effect of annual fluctuations in the number of ponds was positive across the region: the mean value of $P$ = `r pond_eff`. but there was also a spatial gradient in intensity. The effect of number of ponds in a given year was strongest in the western part of the Prairies (Figure 1). This spatial pattern makes sense given that the western prairies tend to experience more intense and frequent drought conditions.
 
 ```{r out.height="100%", eval=TRUE, echo=FALSE, include=TRUE}
 #| include: true
@@ -576,4 +572,4 @@ print(map_save2)
 
 ```
 
-
+## References

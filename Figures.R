@@ -72,8 +72,10 @@ dev.off()
 
 # Alternate GP posterior plot ---------------------------------------------
 
+output_dir <- "output"
 species <- "Baird's Sparrow" 
-
+firstYear <- 2006
+lastYear <- 2021
 
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
@@ -137,6 +139,17 @@ spp <- paste0("_GP_")
            km = dist*1000)
     
   col_1 <- RColorBrewer::brewer.pal(4,"Paired")
+  
+  species_latin <- bbsBayes2::search_species(species)
+  species_latin <- paste(species_latin[1,"genus"],species_latin[1,"species"])
+  
+  capt_tmp <- paste("Figure S1. Sample of posterior draws for the distance-based decay of covariance of
+                    abundance and trend among BBS routes for Baird's Sparrow (",species_latin,") estimated using an
+                    isotropic spatial Gaussian Process model. The modeled estimates show that the
+                    covariance among routes in relative abundance of the species decreases very quickly
+                    with increasing distance (green lines), while the covariance among routes in trends
+                    decreases very slowly with distance (blue lines).")
+  
   spag <- ggplot(data = gp_params)+
     geom_line(aes(x = km,y = pred_cov_beta,
                   group = .draw),
@@ -147,12 +160,16 @@ spp <- paste0("_GP_")
               alpha = 0.9,
               colour = col_1[3])+
     theme_bw()+
+    labs(caption = capt_tmp)+
+    theme(plot.caption = element_text(hjust = 0),
+          text = element_text(family = "serif",
+                              size = 11))+
     ylab("Covariance between pairs of routes")+
     xlab("Distance between routes (km)")
     
   pdf("Figures/Figure_S1.pdf",
-      width = 4,
-      height = 3)
+      width = 8.5,
+      height = 11)
 print(spag)
   dev.off()
   
@@ -465,6 +482,14 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     inner_join(.,cv_comparisons,
                by = "model_comparison")
   
+  
+  capt_tmp <- paste("Figure S4. Leave Future Out (LFO) cross-validation results for 71 small-range species
+                    from the BBS database, comparing three explicitly spatial models (iCAR, BYM, and GP)
+                    to an otherwise identical non-spatial model. The values represent z-score summaries
+                    of the difference between each of the spatial models and the non-spatial model. For all
+                    of the comparisons, positive values indicate that the spatial model had higher out-of-
+                    sample predictive accuracy (higher log point-wise predictive density, lppd) than the 
+                    non-spatial model.")
   z_diffs_all <- ggplot(data = diffs_plot_sel,
                         aes(y = z,x = species,
                             colour = model_comp_plot))+
@@ -477,12 +502,16 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     geom_hline(yintercept = c(-2,2),
                alpha = 0.5)+
     theme_bw()+
+    labs(caption = capt_tmp)+
+    theme(plot.caption = element_text(hjust = 0),
+          text = element_text(family = "serif",
+                              size = 11))+
     coord_flip()#ylim = c(-0.5,0.5))
   
   ### species-level detail from Figure 4 comparing 3 spatial models with nonspatial
   pdf("Figures/Figure_S4.pdf",
-      height = 10,
-      width = 7.5)
+      height = 11,
+      width = 8.5)
   z_diffs_all
   dev.off()
   
@@ -514,7 +543,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                       justification = 0,
                       binwidth = 0.2)+
     theme_bw()+
-    ylab("Z-score difference in pointwise lpd")+
+    ylab("Z-score difference in pointwise lppd")+
     xlab("")+
     scale_x_discrete(guide = guide_axis(position = "right"))+
     # theme(axis.text.y = element_blank(),
@@ -600,7 +629,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                       justification = 0,
                       binwidth = 0.3)+
     theme_bw()+
-    ylab("Z-score difference in pointwise lpd iCAR - Non-spatial")+
+    ylab("Z-score difference in pointwise lppd iCAR - Non-spatial")+
     xlab("")+
     scale_x_continuous(limits = c(0,1), expand = expansion(add = 0))+
     theme(axis.text.y = element_blank(),
@@ -760,6 +789,10 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     print(map)
     dev.off()
     
+    
+    capt_tmp <- paste0("Figure S5. Map of standard error of route-level trend estimates for four broad-ranging
+                       species from an iCAR spatial model and an otherwise identical non-spatial model.")
+    
     map_se <- ggplot()+
       geom_sf(data = base_strata_map,
               fill = NA,
@@ -767,17 +800,21 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       geom_sf(data = plot_map_out,
               aes(colour = trend_sd,
                   size = abundance_sd))+
-      scale_size_continuous(range = c(0.05,2),
+      scale_size_continuous(range = c(0.05,1),
                             name = "SE of Mean Count")+
       scale_colour_viridis_c(aesthetics = c("colour"),
-                             guide = guide_legend(reverse=TRUE),
-                             name = paste0("SE of Trend",firstYear,"-",lastYear))+
+                             guide = guide_colourbar(reverse=TRUE),
+                             name = paste0("SE of Trend \n",firstYear,"-",lastYear))+
       guides(size = "none")+
       theme_bw()+
+      labs(caption = capt_tmp)+
+      theme(plot.caption = element_text(hjust = 0),
+            text = element_text(family = "serif",
+                                size = 11))+
       facet_grid(cols = vars(model),
                  rows = vars(sp))
     # 
-    pdf(paste0("Figures/Figure_S6.pdf"),
+    pdf(paste0("Figures/Figure_S5.pdf"),
         height = 10,
         width = 7.5)
     print(map_se)
@@ -800,6 +837,12 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     
     output_dir <- "F:/iCAR_route_2021/output"
     base_strata_map <- bbsBayes2::load_map("bbs_usgs")
+    
+    species_latin1 <- bbsBayes2::search_species(species_sel[1])
+    species_latin1 <- paste(species_latin1[1,"genus"],species_latin1[1,"species"])
+    
+    species_latin2 <- bbsBayes2::search_species(species_sel[2])
+    species_latin2 <- paste(species_latin2[1,"genus"],species_latin2[1,"species"])
     
     
     firstYear <- 2006
@@ -950,6 +993,16 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     print(map)
     dev.off()
     
+    
+    capt_tmp <- paste0("Figure S5. Map of standard error of route-level trend estimates for two species from two spatial models.
+                       Interestingly, the standard errors of the GP model's estimates are smaller than those of the iCAR model
+                       for both species. However, this higher estimated precision does not reflect higher accuracy
+                       because the out-of-sample predictive accuracy suggests that the best model varies between these two species.
+                       For Canyon Towhee (",species_latin1,") the GP model has higher accuracy and 
+                       for Western Bluebird (",species_latin2,") the iCAR model has higher accuracy.")
+    
+
+    
     map_se <- ggplot()+
       geom_sf(data = base_strata_map,
               fill = NA,
@@ -960,15 +1013,21 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       scale_size_continuous(range = c(0.05,3),
                             name = "SE of Mean Count")+
       scale_colour_viridis_c(aesthetics = c("colour"),
-                             guide = guide_legend(reverse=TRUE),
-                             name = paste0("SE of Trend",firstYear,"-",lastYear))+
+                             guide = guide_colorbar(reverse=TRUE),
+                             name = paste0("SE of Trend \n",firstYear,"-",lastYear))+
       coord_sf(xlim = xlms,ylim = ylms)+
       guides(size = "none")+
       theme_bw()+
+      labs(caption = capt_tmp)+
+      theme(plot.caption = element_text(hjust = 0),
+            text = element_text(family = "serif",
+                                size = 11))+
       facet_grid(cols = vars(model),
                  rows = vars(sp))
+    
+
     # 
-    pdf(paste0("Figures/Figure_S7.pdf"),
+    pdf(paste0("Figures/Figure_S6.pdf"),
         height = 6,
         width = 7.5)
     print(map_se)
