@@ -216,6 +216,7 @@ map_abund <- ggplot()+
                          name = paste0("Relative Abundance"))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
+  theme(panel.grid = element_line(colour = grey(0.95)))+
   labs(title = paste(firstYear,"-",lastYear))+
   facet_wrap(vars(parameter))
 
@@ -240,7 +241,8 @@ map_hab <- ggplot()+
                          name = paste0("Relative Habitat Amount"))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
-  theme(text = element_text(family = "serif",size = 11))+
+  theme(text = element_text(family = "serif",size = 11),
+        panel.grid = element_line(colour = grey(0.95)))+
   labs(title = "Relative habitat amount")
 
 
@@ -256,7 +258,8 @@ map_hab_slope <- ggplot()+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
   theme(text = element_text(family = "serif",
-                            size = 11))+
+                            size = 11),
+        panel.grid = element_line(colour = grey(0.95)))+
   labs(title = "Observed change in habitat")
 
 map_hab_slope
@@ -284,6 +287,7 @@ map_se <- ggplot()+
                          name = paste0("SE of Trend"))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
+  theme(panel.grid = element_line(colour = grey(0.95)))+
   guides(size = "none")+
   labs(title = paste(firstYear,"-",lastYear))+
   facet_wrap(vars(parameter))

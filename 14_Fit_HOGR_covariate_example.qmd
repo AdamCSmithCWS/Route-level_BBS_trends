@@ -498,6 +498,7 @@ map <- ggplot()+
                       name = paste0(lgnd_head))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
+   theme(panel.grid = element_line(colour = grey(0.95)))+
   guides(size = "none")+
   labs(title = paste(species,firstYear,"-",lastYear,BETA_eff))+
   facet_wrap(vars(parameter))
@@ -517,6 +518,7 @@ map_ponds <- ggplot()+
                          name = paste0("Pond effect"))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
+  theme(panel.grid = element_line(colour = grey(0.95)))+
   labs(title = "Spatially varying effects of available habitat on Horned Grebe counts \n during North American Breeding Bird Surveys")
 # 
 map_ponds_lc <- ggplot()+
@@ -530,6 +532,7 @@ map_ponds_lc <- ggplot()+
                          name = paste0("LCL of Pond effect"))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
+  theme(panel.grid = element_line(colour = grey(0.95)))+
   labs(title = "Lower 95% credible limit of effects of available habitat on \n Horned Grebe counts during North American Breeding Bird Surveys")
 
 
