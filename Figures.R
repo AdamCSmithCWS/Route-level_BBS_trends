@@ -617,12 +617,12 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
   
   
   
-  diffs_plot_all <- mndiffs_sp %>% 
-    # filter(grepl("nonspatial",model_comparison)| model_comparison == "iCAR_GP") %>% 
-    inner_join(.,cv_comparisons,
-               by = "model_comparison")
-  
-  
+  # diffs_plot_all <- mndiffs_sp %>% 
+  #   # filter(grepl("nonspatial",model_comparison)| model_comparison == "iCAR_GP") %>% 
+  #   inner_join(.,cv_comparisons,
+  #              by = "model_comparison")
+  # 
+  # 
   difs_sp <- ggplot(data = mndiffs_sp,
                          aes(y = z_iCAR_nonspatial))+
     ggdist::stat_dots(side = "right",
@@ -780,6 +780,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                           name = paste0(lgnd_head,firstYear,"-",lastYear))+
       guides(size = "none")+
       theme_bw()+
+      theme(panel.grid = element_line(colour = grey(0.95)))+
       facet_grid(cols = vars(model),
                  rows = vars(sp))
     
@@ -810,7 +811,8 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       labs(caption = capt_tmp)+
       theme(plot.caption = element_text(hjust = 0),
             text = element_text(family = "serif",
-                                size = 11))+
+                                size = 11),
+            panel.grid = element_line(colour = grey(0.95)))+
       facet_grid(cols = vars(model),
                  rows = vars(sp))
     # 
@@ -984,6 +986,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                expand = TRUE)+
       guides(size = "none")+
       theme_bw()+
+      theme(panel.grid = element_line(colour = grey(0.95)))+
       facet_grid(cols = vars(model),
                  rows = vars(sp))
     
@@ -1021,7 +1024,8 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       labs(caption = capt_tmp)+
       theme(plot.caption = element_text(hjust = 0),
             text = element_text(family = "serif",
-                                size = 11))+
+                                size = 11),
+            panel.grid = element_line(colour = grey(0.95)))+
       facet_grid(cols = vars(model),
                  rows = vars(sp))
     
