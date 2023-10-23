@@ -200,8 +200,7 @@ map <- ggplot()+
                       name = paste0(lgnd_head))+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
-  guides(size = "none")+
-  labs(title = paste(firstYear,"-",lastYear))+
+  theme(panel.grid = element_line(colour = grey(0.95)))+
   facet_wrap(vars(parameter))
 
 
@@ -217,7 +216,7 @@ map_abund <- ggplot()+
   coord_sf(xlim = xlms,ylim = ylms)+
   theme_bw()+
   theme(panel.grid = element_line(colour = grey(0.95)))+
-  labs(title = paste(firstYear,"-",lastYear))+
+  labs(title = "Relative abundance")+
   facet_wrap(vars(parameter))
 
 plot_hab_map <- route_map_2006 %>% 
@@ -289,7 +288,7 @@ map_se <- ggplot()+
   theme_bw()+
   theme(panel.grid = element_line(colour = grey(0.95)))+
   guides(size = "none")+
-  labs(title = paste(firstYear,"-",lastYear))+
+  labs(title  = "Standard error")+
   facet_wrap(vars(parameter))
 
 
@@ -307,9 +306,6 @@ map_se <- ggplot()+
 # 
 # dev.off()
 
-map_save <- map / map_abund + plot_layout(guides = "collect")
-saveRDS(map_save,paste0("Figures/saved_map_RUHU_covariate_",firstYear,".rds"))
-
 pdf(paste0("Figures/Figure_8.pdf"),
     height = 5,
     width = 7)
@@ -319,6 +315,12 @@ print(map)
 
 
 dev.off()
+
+map <- map+
+  labs(title = "Trend")
+map_save <- map / map_abund + plot_layout(guides = "collect")
+saveRDS(map_save,paste0("Figures/saved_map_RUHU_covariate_",firstYear,".rds"))
+
 
 
 maphaball <- map_hab + map_hab_slope + plot_layout(guides = "collect") +

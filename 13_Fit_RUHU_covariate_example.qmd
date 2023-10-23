@@ -1,5 +1,5 @@
 ---
-title: "Rufous Hummingbird habitat covariates"
+title: "Supplemental methods for Rufous Hummingbird habitat covariate example"
 format: pdf
 fig-width: 7
 fig-height: 8

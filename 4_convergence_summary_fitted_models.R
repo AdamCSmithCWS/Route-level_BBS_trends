@@ -84,6 +84,27 @@ conv_sum <- readRDS("data/convergence_summary_May31.rds")
 #   filter(model == "GP",
 #          species == "Lazuli Bunting")
 
+
+
+sdobs <- conv_sum %>% 
+  filter(grepl("sdobs",variable_type)) %>% 
+  select(species,model,mean) %>% 
+  rename(sdobs = mean)
+sdroute <- conv_sum %>% 
+  filter(grepl("sdalpha",variable_type)) %>% 
+  select(species,model,mean) %>% 
+  rename(sdroute = mean)
+
+sd_comp <- sdobs %>% 
+  left_join(.,sdroute,
+            by = c("species","model")) %>% 
+  mutate(sddiff = sdroute - sdobs)
+
+hists <- ggplot(data = sd_comp) +
+  geom_freqpoly(aes(sddiff,colour = model))
+hists
+
+
 n_fail_rhat <- function(x,th = 1.02){
   length(which(x > th))
 }

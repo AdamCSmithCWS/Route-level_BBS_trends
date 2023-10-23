@@ -771,10 +771,11 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
               fill = NA,
               colour = grey(0.75))+
       geom_sf(data = plot_map_out,
-              aes(colour = Tplot,
-                  size = abundance_mean))+
-      scale_size_continuous(range = c(0.05,2),
-                            name = "Mean Count")+
+              aes(colour = Tplot),
+              size = 0.01,
+              shape = 20)+
+      # scale_size_continuous(range = c(0.05,2),
+ #                           name = "Mean Count")+
       scale_colour_manual(values = map_palette, aesthetics = c("colour"),
                           guide = guide_legend(reverse=TRUE),
                           name = paste0(lgnd_head,firstYear,"-",lastYear))+
@@ -977,14 +978,14 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       geom_sf(data = plot_map_out,
               aes(colour = Tplot,
                   size = abundance_mean))+
-      scale_size_continuous(range = c(0.05,3),
+      scale_size_continuous(range = c(0.05,2),
                             name = "Mean Count")+
       scale_colour_manual(values = map_palette, aesthetics = c("colour"),
                           guide = guide_legend(reverse=TRUE),
                           name = paste0(lgnd_head,firstYear,"-",lastYear))+
       coord_sf(xlim = xlms,ylim = ylms,
                expand = TRUE)+
-      guides(size = "none")+
+      #guides(size = "none")+
       theme_bw()+
       theme(panel.grid = element_line(colour = grey(0.95)))+
       facet_grid(cols = vars(model),
@@ -1042,7 +1043,126 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
    
     
   
-  
+
+# Species tables ----------------------------------------------------------
+
+    
+    
+    sps_all <- bbsBayes2::load_bbs_data()$species
+    
+    species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
+    
+    species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
+    
+    sp_s <- data.frame(Species = species_list,
+                       Models_fit = c("Non-spatial, iCAR, BYM, and GP"))
+    sp_l <- data.frame(Species = species_list_broad,
+                       Models_fit = c("Non-spatial, iCAR"))
+    
+    # sp_all <- bind_rows(sp_s,sp_l) %>% 
+    #   rowwise() %>% 
+    #   mutate(latin_name = latin_function(species),
+    #          aou = aou_function(species))
+      
+    sp_all <- bind_rows(sp_s,sp_l) %>% 
+      left_join(.,sps_all,
+                by = c("Species" = "english")) %>% 
+      mutate(latin_name = paste(genus,species),
+             Models_fit = factor(Models_fit,
+                                  levels = c("Non-spatial, iCAR, BYM, and GP",
+                                             "Non-spatial, iCAR"),ordered = TRUE)) %>% 
+      select(Species,latin_name,aou,Models_fit) %>% 
+      distinct() %>% 
+      arrange(Models_fit,aou) %>% 
+      select(-aou)
+
+        
+   write.csv(sp_all,"figures/species_list.csv")
   
     
+   
+
+# Figure S8 supplement ----------------------------------------------------
+
+load("data/cv_summary_4models_data.RData") #four model cross-validation results
+   
+   lpos = function(x){
+     p = length(which(x > 0))/length(x)
+   }
+   
+
+   mndiffs = diffs %>% 
+     group_by(species,dist_cat) %>% 
+     #  group_by(species,route,min_distance,sum_n_years,n_obs,max_nyears) %>% 
+     summarise(m_iCAR_BYM = mean(iCAR_BYM),
+               m_iCAR_GP = mean(iCAR_GP),
+               m_iCAR_nonspatial = mean(iCAR_nonspatial),
+               m_BYM_nonspatial = mean(BYM_nonspatial),
+               m_GP_nonspatial = mean(GP_nonspatial),
+               se_iCAR_BYM = sd(iCAR_BYM)/sqrt(n()),
+               se_iCAR_GP = sd(iCAR_GP)/sqrt(n()),
+               se_iCAR_nonspatial = sd(iCAR_nonspatial)/sqrt(n()),
+               se_BYM_nonspatial = sd(BYM_nonspatial)/sqrt(n()),
+               se_GP_nonspatial = sd(GP_nonspatial)/sqrt(n()),
+               z_iCAR_BYM = mean(iCAR_BYM)/se_iCAR_BYM,
+               z_iCAR_GP = mean(iCAR_GP)/se_iCAR_GP,
+               z_iCAR_nonspatial = mean(iCAR_nonspatial)/se_iCAR_nonspatial,
+               z_BYM_nonspatial = mean(BYM_nonspatial)/se_BYM_nonspatial,
+               z_GP_nonspatial = mean(GP_nonspatial)/se_GP_nonspatial,
+               nbet_iCAR_BYM = lpos(iCAR_BYM),
+               nbet_iCAR_GP = lpos(iCAR_GP),
+               nbet_iCAR_nonspatial = lpos(iCAR_nonspatial),
+               nbet_BYM_nonspatial = lpos(BYM_nonspatial),
+               nbet_GP_nonspatial = lpos(GP_nonspatial),
+               n_routes = length(unique(route)),
+               mean_dist = mean(mean_distance)) %>% 
+     mutate(species = factor(species,ordered = TRUE,
+                             levels = levels(mndiffs_sp$species)),
+            .groups = "keep") 
+
+   
+   mndiffs_sel_plot <- mndiffs %>% 
+     filter(dist_cat == "Isolated")
+   mn_diffs_plot <- mndiffs %>% 
+     filter(species %in% mndiffs_sel_plot$species)
+   
+   
+   capt_tmp <- paste("Figure S8. Mean point-wise differences in log posterior predictive density (lppd, iCAR-GP)
+                     between iCAR and GP spatial models for BBS routes that are Isolated from other routes
+                     (i.e., greater than 200 km from the nearest neighbour, in dark purple) and other 
+                     routes that are more central to the species range and therefor have closer (and usually
+                     more) neighbors. For most of the species here, the iCAR based simplification of spatial 
+                     relationships has higher predictive accuracy for the trends on Isolated routes than the 
+                     GP model (dark points to the right of the vertal line at 0) that uses precise distance 
+                     information and therefore necessarily treats these isolated routes as having lower covariance
+                     in trends and abundances than the iCAR model that treats them as immediate neighbours of 
+                     the nearest routes that are 200 km away.")
+   
+   
+   y_diffs_gp <- ggplot(data = mn_diffs_plot,
+                        aes(y = m_iCAR_GP,x = species,
+                            colour = dist_cat))+
+     geom_point()+
+     scale_colour_viridis_d(direction = -1,
+                            begin = 0.1,end = 0.8)+
+     geom_hline(yintercept = 0)+
+     theme_bw()+
+     xlab("")+
+     ylab("Mean difference (iCAR-GP) \n positive values support iCAR over GP")+
+     guides(guide_legend(title = "Distance to \n nearest neighbor"))+
+     labs(caption = capt_tmp)+
+     theme(plot.caption = element_text(hjust = 0),
+           text = element_text(family = "serif",
+                               size = 11),
+           panel.grid = element_line(colour = grey(0.95)))+
+     coord_flip()
+   
+   pdf("Figures/Figure_S8.pdf",
+       height = 11,
+       width = 8.5)
+   y_diffs_gp
+   dev.off()
+   
+   
+   
   

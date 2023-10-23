@@ -18,9 +18,6 @@ species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
 
 species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
 
-species_list <- c(species_list,"Blue-headed Vireo")
-species_list <- c(species_list,"Lazuli Bunting")
-species_list <- c(species_list,"Scissor-tailed Flycatcher")
 
 
 firstYear <- 2006
@@ -138,13 +135,30 @@ simpl_sum <- cv_sum %>%
             mean_dist = mean(mean_distance)) %>% 
   mutate(species = fct_reorder(species,mean_dist) )
 
+capt_tmp <- paste("Figure S9. Mean point-wise log posterior predictive density (lppd) by species and
+                  model for three spatial models and one non-spatial model estimating trends and abundance
+                  at individual BBS routes.")
 sum_plot <- ggplot(simpl_sum,
                    aes(x = species,y = mean, colour = model))+
   geom_pointrange(aes(ymin = lci,ymax = uci),
-                  position = position_dodge(width = 0.8))+
+                  position = position_dodge(width = 1),
+                  size = 0.2,
+                  linewidth = 0.1,
+                  alpha = 0.7)+
   coord_flip()+
-  scale_colour_viridis_d()
+  scale_colour_viridis_d()+
+  theme_bw()+
+  labs(caption = capt_tmp)+
+  theme(plot.caption = element_text(hjust = 0),
+        text = element_text(family = "serif",
+                            size = 11),
+        panel.grid = element_line(colour = grey(0.95)))
+
+pdf("figures/Figure_S9_alt.pdf",
+    height = 11,
+    width = 8.5)
 sum_plot
+dev.off()
 
 
 
@@ -167,8 +181,8 @@ cv_sum <- cv_sum %>%
                         ordered = FALSE),
          I = paste(species,E_pred_i,sep = "-"))
 
-# save(list = c("diffs","cv_sum"),
-#      file = "data/cv_summary_25_data.RData")
+save(list = c("diffs","cv_sum"),
+     file = "data/cv_summary_4models_data.RData")
 
 
 # 
