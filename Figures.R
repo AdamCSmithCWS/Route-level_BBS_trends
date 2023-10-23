@@ -777,7 +777,8 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       # scale_size_continuous(range = c(0.05,2),
  #                           name = "Mean Count")+
       scale_colour_manual(values = map_palette, aesthetics = c("colour"),
-                          guide = guide_legend(reverse=TRUE),
+                          guide = guide_legend(reverse=TRUE,
+                                               override.aes = list(sizde = 5)),
                           name = paste0(lgnd_head,firstYear,"-",lastYear))+
       guides(size = "none")+
       theme_bw()+
