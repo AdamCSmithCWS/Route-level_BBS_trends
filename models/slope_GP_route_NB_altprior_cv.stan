@@ -1,3 +1,5 @@
+// Gaussian Process, route-level trend model with alternate and more informative prior on the scale of trend adn abundance covariance
+// with structures to support cross-validation of next year's observations
 // This is a Stan implementation of a route-level slope model
 // plus, it has an explicitly spatial prior structure on the 
 // random effect, stratum-level trends
@@ -103,10 +105,7 @@ model {
   vector[ncounts] E;           // log_scale additive likelihood
 
   // Prior for the GP length scale (i.e. spatial decay)
-  // very small values will be inidentifiable, so an informative prior
-  // is a must
-  // gp_sq_rho_beta ~ normal(2, 2.5);
-  // gp_sq_rho_alpha ~ normal(2, 2.5);
+  // alternate priors that put more prior mass at relatively long scales (slow spatial decay with distance)
   gp_sq_rho_beta ~ gamma(2,2);
   gp_sq_rho_alpha ~ gamma(2,2);
   // Prior for the GP covariance magnitude
@@ -116,7 +115,7 @@ model {
   gp_eta_beta ~ normal(0,0.1);
   gp_eta_alpha ~ std_normal();
    
-  sdnoise ~ student_t(3,0,1); //prior on scale of extra Poisson log-normal variance
+  sdnoise ~ student_t(3,0,1); //prior on scale of inverse squared dispersion of NBinomial distribution phi = 1/sqrt(sdnoise)
 
   sdobs ~ normal(0,0.3); //prior on sd of observer effects
  

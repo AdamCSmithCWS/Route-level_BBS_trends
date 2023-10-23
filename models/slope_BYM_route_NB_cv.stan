@@ -1,3 +1,5 @@
+// Besag York Mollie - BYM route-level trend model
+// with structures to support cross-validation using next year's observations
 // This is a Stan implementation of a route-level slope model
 // plus, it has an explicitly spatial prior structure on the 
 // random effect, stratum-level trends
@@ -97,7 +99,7 @@ model {
   sum(beta_raw_rand) ~ normal(0,0.001*nroutes);
 
   
-  sdnoise ~ normal(0,0.5); //prior on scale of extra Poisson log-normal variance
+  sdnoise ~ student_t(3,0,1); //prior on scale of inverse squared dispersion of NBinomial distribution phi = 1/sqrt(sdnoise)
 
   phi = 1/sqrt(sdnoise); //as recommended to avoid prior that places most prior mass at very high overdispersion by https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
 

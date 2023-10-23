@@ -1,6 +1,8 @@
+// Model used in the Rufous Hummingbird habitat covariate example
 // This is a Stan implementation of a route-level slope model
 // plus, it has an explicitly spatial prior structure on the 
 // random effect, and covariates on the intercepts and trends
+// 
 
 //iCAR function
  functions {
@@ -35,7 +37,9 @@ data {
   array [N_edges] int<lower=1, upper=nroutes> node1;  // node1[i] adjacent to node2[i]
   array [N_edges] int<lower=1, upper=nroutes> node2;  // and node1[i] < node2[i]
 
-  int<lower=0, upper=1> fit_spatial; //if 1 then use spatial component to model intercept residual
+  int<lower=0, upper=1> fit_spatial; 
+  // conditional: 
+  // if 1 then use spatial component to model intercept residual
   // if 0 then use simple random effect
 
 }

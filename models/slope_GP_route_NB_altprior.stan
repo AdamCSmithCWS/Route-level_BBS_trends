@@ -1,3 +1,5 @@
+// Gaussian Process, route-level trend model with alternative prior on the distance of trend and abundance covariance
+// with structures to support cross-validation of next year's observations
 // This is a Stan implementation of a route-level slope model
 // plus, it has an explicitly spatial prior structure on the 
 // random effect, stratum-level trends
@@ -110,7 +112,7 @@ model {
   gp_eta_beta ~ normal(0,0.1);
   gp_eta_alpha ~ std_normal();
   
-  sdnoise ~ student_t(3,0,1); //prior on scale of extra Poisson log-normal variance
+  sdnoise ~ student_t(3,0,1); //prior on scale of inverse squared dispersion of NBinomial distribution phi = 1/sqrt(sdnoise)
 
   sdobs ~ normal(0,0.3); //prior on sd of observer effects
  

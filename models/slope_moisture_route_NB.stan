@@ -1,3 +1,4 @@
+// Model used in the Horned Grebe covariate example
 // This is a Stan implementation of a route-level slope model
 // plus, it has an explicitly spatial prior structure on the 
 // random effect, stratum-level trends
@@ -26,7 +27,7 @@ data {
   array [ncounts] int<lower=0> firstyr; // first year index
   array [ncounts] int<lower=1> observer;              // observer indicators
 
-   array [ncounts] real pond;              // count-level pond predictors
+   array [ncounts] real pond;              // count-level pond predictors - centered and scaled (number of ponds near route each year)
 
   int<lower=1> fixedyear; // centering value for years
  
@@ -59,7 +60,7 @@ parameters {
 
 //climate stuff
 
-  vector[nroutes] rho_raw;
+  vector[nroutes] rho_raw; // route-level effect of ponds 
   real<lower=0> sdrho;    // sd of pond effects
   real RHO; // mean of pond effect
 
@@ -108,7 +109,7 @@ model {
   sdobs ~ normal(0,0.3); //prior on sd of observer effects
  
   obs_raw ~ std_normal();//observer effects
-  sum(obs_raw) ~ normal(0,0.001*nobservers);
+  sum(obs_raw) ~ normal(0,0.001*nobservers); //soft sum-zero constraint
 
   sdrho ~ gamma(3,30);//prior on sd of covariate effect
   rho_raw ~ icar_normal(nroutes, node1, node2);// ~ std_normal();//covariate effects

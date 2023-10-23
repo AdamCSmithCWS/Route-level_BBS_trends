@@ -1,9 +1,11 @@
+// Gaussian Process, route-level trend model 
+// with structures to support cross-validation of next year's observations
 // This is a Stan implementation of a route-level slope model
 // plus, it has an explicitly spatial prior structure on the 
 // random effect, stratum-level trends
 // and no random year-effects - slope only
 
-// GP function - courtesy of rethinking  
+// GP function - courtesy of rethinking package and text 
 functions {
   // Function to compute the squared exponential covariance matrix and
   // cholesky deomposition
@@ -103,20 +105,16 @@ model {
   vector[ncounts] E;           // log_scale additive likelihood
 
   // Prior for the GP length scale (i.e. spatial decay)
-  // very small values will be inidentifiable, so an informative prior
-  // is a must
-  // gp_sq_rho_beta ~ normal(2, 2.5);
-  // gp_sq_rho_alpha ~ normal(2, 2.5);
   gp_sq_rho_beta ~ inv_gamma(5,5);
   gp_sq_rho_alpha ~ inv_gamma(5,5);
   // Prior for the GP covariance magnitude
   gp_sq_alpha_beta ~ student_t(5,0,1);
   gp_sq_alpha_alpha ~ student_t(5,0,1);
-  // Multiplier for non-centred GP parameterisation
-  gp_eta_beta ~ normal(0,0.1);
-  gp_eta_alpha ~ std_normal();
+  // Scaling for non-centred GP parameterisation
+  gp_eta_beta ~ normal(0,0.1); // trend relevant prior scale
+  gp_eta_alpha ~ std_normal(); // abundance relevant prior scale
    
-  sdnoise ~ student_t(3,0,1); //prior on scale of extra Poisson log-normal variance
+  sdnoise ~ student_t(3,0,1); //prior on scale of inverse squared dispersion of NBinomial distribution phi = 1/sqrt(sdnoise)
 
   sdobs ~ normal(0,0.3); //prior on sd of observer effects
  

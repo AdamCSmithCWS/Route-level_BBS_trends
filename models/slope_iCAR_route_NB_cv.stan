@@ -1,3 +1,5 @@
+//iCAR route-level trend model negative binomial error 
+// with structures to support cross-validation of next year's observations
 // This is a Stan implementation of a route-level slope model
 // plus, it has an explicitly spatial prior structure on the 
 // random effect, stratum-level trends
@@ -36,7 +38,7 @@ data {
 
 // values for predicting next years data
   int<lower=1> ncounts_pred;
-  array[ncounts_pred] int<lower=0> count_pred;              // count observations
+  array[ncounts_pred] int<lower=0> count_pred; // count observations from next year (out of sample)
   array[ncounts_pred] int<lower=1> route_pred; // route index
   array[ncounts_pred] int<lower=0> firstyr_pred; // first year index
   array[ncounts_pred] int<lower=0> observer_pred; 
@@ -58,7 +60,7 @@ parameters {
   
   vector[nobservers] obs_raw; //observer effects
 
-  real<lower=0> sdnoise;    // inverse of sd of over-dispersion
+  real<lower=0> sdnoise;    //prior on scale of inverse squared dispersion of NBinomial distribution phi = 1/sqrt(sdnoise)
  //real<lower=1> nu;  //optional heavy-tail df for t-distribution
   real<lower=0> sdobs;    // sd of observer effects
   real<lower=0> sdbeta_space;    // sd of slopes 
