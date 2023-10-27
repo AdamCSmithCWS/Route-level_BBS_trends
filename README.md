@@ -1,6 +1,6 @@
 # BBS_spatial_route_trends
 
-NOTE: This is a work in progress. I anticipate having a pre-print by November 2023.
+This work is now summarised in this pre-print: 
 
 # The Goal(s)
 
