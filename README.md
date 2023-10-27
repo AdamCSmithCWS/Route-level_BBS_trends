@@ -1,6 +1,6 @@
 # BBS_spatial_route_trends
 
-This work is now summarised in this pre-print: 
+This work is now summarised in this [pre-print](https://doi.org/10.32942/X2SP5J)
 
 Patterns and drivers of population trends on individual Breeding Bird Survey routes using spatially explicit models and route-level covariates.
 
