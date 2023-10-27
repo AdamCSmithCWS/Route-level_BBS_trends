@@ -25,12 +25,13 @@ The trend at a given route may not closely match the observed counts over time, 
 
 I've relied strongly on elements from this excellent case study in Stan:
 
--   This [intrinsic CAR model structure for the BYM](https://mc-stan.org/users/documentation/case-studies/icar_stan.html) model from Mitzi Morris and co-authors.
+-   This [intrinsic CAR model structure for the iCAR and BYM](https://mc-stan.org/users/documentation/case-studies/icar_stan.html) model from Mitzi Morris and co-authors.
 
+And the Gaussian Process components were derived from case studies in [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/). 
 
 It's effectively a negative binomial regression model with random slopes representing the trends at each route, random intercepts representing the mean abundance (mean count) on each route, as well as the among and within observers effects (true observers, see below)
 
-## Estimated trends and abundances on Google Drive
+## Estimated trends and abundances for an earlier version on Google Drive
 
 I've applied the BYM model to the BBS for \~400 species, for trends from 2004-2019. Estimated slopes, trends, and intercepts, for every route and species are available to explore in a personal [Google Drive](https://drive.google.com/drive/folders/1w5WMg-sdrrJaO9E8LYB-13GSWBVI2HE3?usp=sharing). The drive includes a readme file that explains the contents as well as trend maps for all species.
 
