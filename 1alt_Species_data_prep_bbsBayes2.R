@@ -1,7 +1,7 @@
 ## Prepare data for full model fits
 #setwd("C:/GitHub/iCAR_route_2021")
 setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
-library(bbsBayes)
+library(bbsBayes2)
 library(tidyverse)
 library(cmdstanr)
 source("functions/neighbours_define_voronoi.R") ## function to define neighbourhood relationships
@@ -27,22 +27,32 @@ lastYear <- 2021
 
 
 
-strat_data <- bbsBayes::stratify(by = strat)
+#strat_data <- bbsBayes::stratify(by = strat)
+strat_data <- load_bbs_data(release = 2022)
 
-nrecs_sp <- strat_data$bird_strat %>% 
-  filter(Year > firstYear) %>% 
-  group_by(AOU) %>% 
+# nrecs_sp <- strat_data$bird_strat %>% 
+#   filter(Year > firstYear) %>% 
+#   group_by(AOU) %>% 
+#   summarise(num_counts = n(),
+#             num_routes = length(unique(rt.uni))) %>% 
+#   left_join(.,strat_data$species_strat,by = c("AOU" = "sp.bbs")) %>% 
+#   filter(num_counts > 200,
+#          !grepl("unid",english)) %>% 
+#   arrange(num_counts)
+
+sps_bbs <- strat_data$species %>% 
+  filter(unid_combined == TRUE)
+
+nrecs_sp <- strat_data$birds %>% 
+  filter(year > firstYear) %>% 
+  group_by(aou) %>% 
   summarise(num_counts = n(),
-            num_routes = length(unique(rt.uni))) %>% 
-  left_join(.,strat_data$species_strat,by = c("AOU" = "sp.bbs")) %>% 
+            num_routes = length(unique(paste(state_num,"-",route)))) %>% 
+  left_join(.,sps_bbs,by = c("aou" = "aou")) %>% 
   filter(num_counts > 200,
          !grepl("unid",english)) %>% 
   arrange(num_counts)
 
-species_sort <- strat_data$species %>% 
-  arrange(seq) %>% 
-  mutate(english = fct_inorder(english, ordered = TRUE))
-saveRDS(species_sort, "data/species_sort.rds")
 #nrecs_sp <- readRDS("data/nobs_by_sp.rds")
 
 sp_small_range <- nrecs_sp %>% 
@@ -101,9 +111,14 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_stan_data.RData")
 
 
+jags_data <- bbsBayes2::stratify(by = strat,species = species) %>% 
+  bbsBayes2::prepare_data(min_year = firstYear,
+    max_year = lastYear,
+    min_n_routes = 1,
+    min_max_route_years = 1)
 
 ### this is the alternate prepare data function - modified from bbsBayes
-jags_data = prepare_data(strat_data = strat_data,
+jags_data0 = prepare_data(strat_data = strat_data,
                               species_to_run = species,
                               model = model,
                               #n_knots = 10,
@@ -237,19 +252,11 @@ car_stan_dat <- neighbours_define_voronoi(real_point_map = route_map,
 ## a relative measure of concavity. 1 results in a relatively detailed shape, Infinity results in a convex hull.
 
 
+#prints a map of the route locations and neighbours to confirm reasonable
 pdf(paste0("data/maps/route_map_",firstYear,"-",lastYear,"_",species_f,".pdf"))
 print(car_stan_dat$map)
 dev.off()
 
-
-# set up cross-validation folds -------------------------------------------
-
-# new_data$folds <- cv_folds(new_data,
-#                   fold_groups = "routeF")
-# 
-# check_folds <- new_data %>% 
-#   group_by(routeF,ObsN,folds) %>% 
-#   summarise(n = n())
 
 
 stan_data <- list()

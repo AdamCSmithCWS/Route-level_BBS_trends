@@ -3,7 +3,7 @@
 library(tidyverse)
 library(patchwork)
 library(sf)
-
+ species_sort <- readRDS("data/species_sort.rds")
 # Figure_1 ----------------------------------------------------------------
 
 # demonstration of neighbours for BHVI
@@ -480,7 +480,10 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
   diffs_plot_sel <- diffs_plot %>% 
     filter(grepl("nonspatial",model_comparison)) %>% 
     inner_join(.,cv_comparisons,
-               by = "model_comparison")
+               by = "model_comparison") %>% 
+    mutate(species = factor(species,
+                            levels = species_sort$english,
+                            ordered = TRUE))
   
   
   capt_tmp <- paste("Figure S4. Leave Future Out (LFO) cross-validation results for 71 small-range species
@@ -793,6 +796,10 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     dev.off()
     
     
+
+# Figure S5 ---------------------------------------------------------------
+
+    
     capt_tmp <- paste0("Figure S5. Map of standard error of route-level trend estimates for four broad-ranging
                        species from an iCAR spatial model and an otherwise identical non-spatial model.")
     
@@ -999,7 +1006,12 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     dev.off()
     
     
-    capt_tmp <- paste0("Figure S5. Map of standard error of route-level trend estimates for two species from two spatial models.
+    
+
+# Figure S6 ---------------------------------------------------------------
+
+    
+    capt_tmp <- paste0("Figure S6. Map of standard error of route-level trend estimates for two species from two spatial models.
                        Interestingly, the standard errors of the GP model's estimates are smaller than those of the iCAR model
                        for both species. However, this higher estimated precision does not reflect higher accuracy
                        because the out-of-sample predictive accuracy suggests that the best model varies between these two species.
@@ -1072,10 +1084,10 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
              Models_fit = factor(Models_fit,
                                   levels = c("Non-spatial, iCAR, BYM, and GP",
                                              "Non-spatial, iCAR"),ordered = TRUE)) %>% 
-      select(Species,latin_name,aou,Models_fit) %>% 
+      select(Species,latin_name,seq,Models_fit) %>% 
       distinct() %>% 
-      arrange(Models_fit,aou) %>% 
-      select(-aou)
+      arrange(Models_fit,seq) %>% 
+      select(-seq)
 
         
    write.csv(sp_all,"figures/species_list.csv")
@@ -1118,7 +1130,7 @@ load("data/cv_summary_4models_data.RData") #four model cross-validation results
                n_routes = length(unique(route)),
                mean_dist = mean(mean_distance)) %>% 
      mutate(species = factor(species,ordered = TRUE,
-                             levels = levels(mndiffs_sp$species)),
+                             levels = levels(species_sort$english)),
             .groups = "keep") 
 
    

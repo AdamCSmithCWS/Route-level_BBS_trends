@@ -1,6 +1,4 @@
-## Fitting the BYM model to 1995 - 2021 BBS data
-## script currently written to fit the model then save the Stan output to a directory
-## 
+
 #setwd("C:/GitHub/iCAR_route_2021")
 setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 library(tidyverse)
@@ -11,9 +9,12 @@ library(patchwork)
 
 output_dir <- "output"
 output_dir <- "F:/iCAR_route_2021/output"
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")
 
-## this list should include all of the species that we're interested in for the grasslands project
+
 species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
+#species_list <- c(species_list,"Blue-headed Vireo")
+
 species_list_broad <- readRDS("data/species_to_include_2_model_comparison.rds")
 
 
@@ -26,22 +27,22 @@ ppy <- function(x){
 }
 # SPECIES LOOP ------------------------------------------------------------
 
-pdf(paste0("Figures/Figure_S2.pdf"),
-    height = 10.5,
-    width = 7.5)
-base_strata_map <- bbsBayes2::load_map("bbs_usgs")
+outboth_save <- NULL
+re_summarize <- FALSE # set to true if running for the first time
 
+pdf(paste0("Figures/Figure_S2.pdf"),
+    height = 11,
+    width = 8)
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in species_list_broad){
+for(species in species_list){
 #species <- species_list[2]
-
   species_latin <- bbsBayes2::search_species(species)
   species_latin <- paste(species_latin[1,"genus"],species_latin[1,"species"])
   
   species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
   
-  out_base_temp <- paste0(species_f,"_nonspatial_",firstYear,"_",lastYear)
+  out_base_temp <- paste0(species_f,"_GP_",firstYear,"_",lastYear)
   
   if(!file.exists(paste0(output_dir,"/",out_base_temp,"_summ_fit.rds"))){next}
     
@@ -52,9 +53,9 @@ sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_stan_data.
 
 load(sp_data_file)
 
-
+if(re_summarize){
 outboth <- NULL
-for(spp1 in c("iCAR","nonspatial")){
+for(spp1 in c("BYM","iCAR","nonspatial","GP")){
 
   spp <- paste0("_",spp1,"_")
   
@@ -66,6 +67,7 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
 #stanfit <- readRDS(paste0(output_dir,"/",out_base,"_stanfit.rds"))
+ 
 summ <- readRDS(paste0(output_dir,"/",out_base,"_summ_fit.rds"))
 
 abundance <- summ %>% 
@@ -100,10 +102,20 @@ both <- inner_join(slope,abundance,
                   by = "routeF") %>% 
   mutate(model = spp1)
 
-outboth <- bind_rows(outboth,both)
+outboth <- bind_rows(outboth,both) %>% 
+  mutate(species = species)
+
+saveRDS(outboth,
+        paste0("output/predictions_4_models_",species_f,".RDS"))
+outboth_save <- bind_rows(outboth_save,outboth)
+
 
 } #end models loop
+}else{#end if re_summarize
 
+  outboth <- readRDS(paste0("output/predictions_4_models_",species_f,".RDS"))
+  
+}
 strata_bounds <- st_union(route_map) #union to provide a simple border of the realised strata
 bb = st_bbox(strata_bounds)
 xdif <- as.numeric(bb$xmax - bb$xmin)*1.1
@@ -113,6 +125,7 @@ xlms = as.numeric(c(ifelse(bb$xmin > 0,bb$xmin*0.9,bb$xmin*1.1),
                     bb$xmin + xdif))
 ylms = as.numeric(c(ifelse(bb$ymin > 0,bb$ymin*0.9,bb$ymin*1.1),
                     bb$ymin + ydif))
+
 
 
 plot_map <- route_map %>% 
@@ -137,7 +150,6 @@ map_palette <- c("#a50026", "#d73027", "#f46d43", "#fdae61", "#fee090", "#ffffbf
 names(map_palette) <- labls
 
 
-
 map <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
@@ -160,10 +172,11 @@ map <- ggplot()+
   coord_sf(xlim = xlms,ylim = ylms)+
   facet_wrap(vars(model))
   
-
-sp_caption <- paste0("Figure S2 (continued). Comparison of the predictions for ",species," (",species_latin,") \n from a spatially explicit model (iCAR) and a non-spatial model of route-level abundance (size of dots) \n and trends (colours) on individual survey routes from the North American Breeding Bird Survey. \n Each point represents the starting location (first 3-minute point count) of the 50-point count \n 40 km long roadside survey transect")
-
-
+if(species == species_list[1]){
+sp_caption <- paste0("Figure S2. Comparison of the predictions for ",species," (",species_latin,") \n from three spatially explicit models (iCAR, BYM, GP) and a non-spatial model of route-level \n abundance (size of dots) and trends (colours) on individual survey routes from the \n North American Breeding Bird Survey. Each point represents the starting location (first 3-minute point count) \n of the 50-point count 40 km long roadside survey transect")
+}else{
+  sp_caption <- paste0("Figure S2 (continued). Comparison of the predictions for ",species," (",species_latin,") \n from three spatially explicit models (iCAR, BYM, GP) and a non-spatial model of route-level \n abundance (size of dots) and trends (colours) on individual survey routes from the \n North American Breeding Bird Survey. Each point represents the starting location (first 3-minute point count) \n of the 50-point count 40 km long roadside survey transect")
+}
 map_se <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
@@ -174,8 +187,8 @@ map_se <- ggplot()+
   scale_size_continuous(range = c(0.05,2),
                         name = "CV of Mean Count")+
   scale_colour_viridis_c(aesthetics = c("colour"),
-                      guide = guide_colorbar(reverse=TRUE),
-                      name = paste0("SE of Trend ",firstYear,"-",lastYear))+
+                         guide = guide_colorbar(reverse=TRUE),
+                         name = paste0("SE of Trend ",firstYear,"-",lastYear))+
   labs(subtitle = paste("Standard error"))+
   labs(caption = sp_caption) +
   theme_bw()+
@@ -191,10 +204,9 @@ print(fullmap)
 
 
 
+
+
 }#end species loop
 
-
 dev.off()
-
-
 

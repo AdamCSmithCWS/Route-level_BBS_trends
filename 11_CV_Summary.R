@@ -119,7 +119,7 @@ for(species in species_list){
 # explore and plot comparison ---------------------------------------------
 
 
-
+species_sort <- readRDS("data/species_sort.rds")
 
 # point wise differences among models -------------------------------------
 cv_sum$Year <- factor(cv_sum$r_year)
@@ -133,7 +133,8 @@ simpl_sum <- cv_sum %>%
             lci = mean - se*1.96,
             uci = mean + se*1.96,
             mean_dist = mean(mean_distance)) %>% 
-  mutate(species = fct_reorder(species,mean_dist) )
+  mutate(species = factor(species,levels = species_sort$english,
+                          ordered = TRUE) )
 
 capt_tmp <- paste("Figure S9. Mean point-wise log posterior predictive density (lppd) by species and
                   model for three spatial models and one non-spatial model estimating trends and abundance
@@ -146,7 +147,7 @@ sum_plot <- ggplot(simpl_sum,
                   linewidth = 0.1,
                   alpha = 0.7)+
   coord_flip()+
-  scale_colour_viridis_d()+
+  scale_colour_viridis_d(guide = guide_legend(reverse = TRUE))+
   theme_bw()+
   labs(caption = capt_tmp)+
   theme(plot.caption = element_text(hjust = 0),
