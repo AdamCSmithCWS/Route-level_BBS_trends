@@ -15,7 +15,9 @@ bibliography: references_RUHU.bib
 
 ## Model structure
 
-The model is an elaboration of the iCAR route-level trend model, where the route-level intercepts and slopes are additive combinations of a component that is a function of a route-level predictor and a residual component, estimated either with the iCAR structure or a non-spatial random effect. The route-level predictors are derived from a habitat modeling study for Rufous Hummingbirds (details below). The mean habitat suitability within a buffer of the BBS route-path is used as a predictor on the intercept (i.e., the mean relative abundance on a given route). The rate of change in habitat suitability over time within the same buffer was used as a predictor on the slope (i.e., the trend in the species' abundance). This model structure relies on relatively simple assumptions that the amount of habitat around a BBS route should predict the number of individual birds, and that the change in the amount of habitat should predict the change in the number of birds.
+The model is an elaboration of the iCAR route-level trend model, where the route-level intercepts and slopes are additive combinations of a component that is a function of a route-level predictor and a residual component, estimated either with the iCAR structure or a non-spatial random effect. The route-level predictors are derived from a habitat modeling study for Rufous Hummingbirds (*Selasphorus rufus*). The mean habitat suitability within a buffer of the BBS route-path is used as a predictor on the intercept (i.e., the mean relative abundance on a given route). The rate of change in habitat suitability over time within the same buffer was used as a predictor on the slope (i.e., the trend in the species' abundance). This model structure relies on relatively simple assumptions that the amount of habitat around a BBS route should predict the number of individual birds, and that the change in the amount of habitat should predict the change in the number of birds.
+
+The original study estimated habitat suitability using spectral remote sensing data and species distribution modelling approaches to detect and quantify habitat loss for the Rufous Hummingbird. Using a combination of Landsat surface reflectance remote sensing imagery and long-term climate data, and observations of Rufous Hummingbird occurrence complied from numerous datasets, the study quantified the annual distribution of habitat suitability over time (1985--2021) across the species' entire breeding range in the Pacific Northwest. The habitat suitability modeling in this study was based on the methods in ([@betts2022]).
 
 The basic model is the same as all of other models in the main paper.
 
@@ -39,7 +41,7 @@ The spatially varying component of the slope ($\beta_r{\prime\prime\prime}$) was
 
 ### Alternative non-spatial residual term on intercepts
 
-In the fully spatial version of the model, there was a relatively strong spatial autocorrelation in both the habitat suitability and the mean abundance of the species. As a result, the spatial iCAR component of the intercept abosrbed much of the variation in abundance among routes, leaving relatively little variation explained by habitat.
+In the fully spatial version of the model, there was a relatively strong spatial autocorrelation in both the habitat suitability and the mean abundance of the species. As a result, the spatial iCAR component of the intercept absorbed much of the variation in abundance among routes, leaving relatively little variation explained by habitat.
 
 Since the spatial component of habitat suitability could reasonably be considered a cause of the spatial dependency in abundance, we drew our final inference on the effect of habitat suitability on abundance from a model that estimated the residual component of the intercept term with a non-spatial varying effect (i.e., a simple random effect). Specifically, the component of the intercept that represents the residual relative abundance ($\alpha_r^{\prime\prime\prime}$) was drawn from a normal distribution centered at zero with an estimated standard deviation ($\alpha_r^{\prime\prime\prime} \sim Normal(0,\sigma_{\alpha^{\prime\prime\prime}})$).
 
@@ -81,8 +83,6 @@ load(sp_data_file)
 
   mod.file = paste0("models/slope",spp,"route_NB.stan")
   
-# trend habitat effects are not changed, but the intercept effect is
-# removes the optional spatial components for intercepts 
 stan_data[["fit_spatial"]] <- 0 # this sets an option in the model
 # to estimate the residual intercept component using a simple random
 # effect, instead of a spatial one. This allows the model to estimate

@@ -137,8 +137,8 @@ simpl_sum <- cv_sum %>%
                           ordered = TRUE) )
 
 capt_tmp <- paste("Figure S9. Mean point-wise log posterior predictive density (lppd) by species and
-                  model for three spatial models and one non-spatial model estimating trends and abundance
-                  at individual BBS routes.")
+                  model for three spatial models (iCAR, GP, and BYM) and one non-spatial model estimating
+                  trends and abundance at individual BBS routes.")
 sum_plot <- ggplot(simpl_sum,
                    aes(x = species,y = mean, colour = model))+
   geom_pointrange(aes(ymin = lci,ymax = uci),
@@ -155,7 +155,7 @@ sum_plot <- ggplot(simpl_sum,
                             size = 11),
         panel.grid = element_line(colour = grey(0.95)))
 
-pdf("figures/Figure_S9_alt.pdf",
+pdf("figures/Figure_S9.pdf",
     height = 11,
     width = 8.5)
 sum_plot

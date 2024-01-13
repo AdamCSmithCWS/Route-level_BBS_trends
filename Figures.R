@@ -485,6 +485,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                             levels = species_sort$english,
                             ordered = TRUE))
   
+
+# Figure S4 ---------------------------------------------------------------
+
   
   capt_tmp <- paste("Figure S4. Leave Future Out (LFO) cross-validation results for 71 small-range species
                     from the BBS database, comparing three explicitly spatial models (iCAR, BYM, and GP)
@@ -499,7 +502,8 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     geom_point()+
     geom_hline(yintercept = 0)+
     scale_colour_viridis_d(direction = -1,
-                           end = 0.8)+
+                           end = 0.8,
+                           guide = guide_legend(title = "Model comparison"))+
     ylab("Z-score difference in pointwise lpd")+
     xlab("")+
     geom_hline(yintercept = c(-2,2),
@@ -800,8 +804,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
 # Figure S5 ---------------------------------------------------------------
 
     
-    capt_tmp <- paste0("Figure S5. Map of standard error of route-level trend estimates for four broad-ranging
-                       species from an iCAR spatial model and an otherwise identical non-spatial model.")
+    capt_tmp <- paste0("Figure S5. Examples of the spatial patterns in standard error of route-level trend 
+    estimates for four broad-ranging species from an iCAR spatial model and an otherwise identical
+    non-spatial model. Each point represents the starting location of a Breeding Bird Survey route.")
     
     map_se <- ggplot()+
       geom_sf(data = base_strata_map,
@@ -1012,10 +1017,10 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
 
     
     capt_tmp <- paste0("Figure S6. Map of standard error of route-level trend estimates for two species from two spatial models.
-                       Interestingly, the standard errors of the GP model's estimates are smaller than those of the iCAR model
-                       for both species. However, this higher estimated precision does not reflect higher accuracy
-                       because the out-of-sample predictive accuracy suggests that the best model varies between these two species.
-                       For Canyon Towhee (",species_latin1,") the GP model has higher accuracy and 
+                       Although the standard errors of the GP model's estimates are smaller than those of the iCAR model
+                       for both species, this higher estimated precision does not reflect higher accuracy
+                       because the out-of-sample predictive accuracy suggests that the best model varies between
+                       these two species. For Canyon Towhee (",species_latin1,") the GP model has higher accuracy and 
                        for Western Bluebird (",species_latin2,") the iCAR model has higher accuracy.")
     
 
@@ -1086,7 +1091,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
                                              "Non-spatial, iCAR"),ordered = TRUE)) %>% 
       select(Species,latin_name,seq,Models_fit) %>% 
       distinct() %>% 
-      arrange(Models_fit,seq) %>% 
+      arrange(seq) %>% 
       select(-seq)
 
         
@@ -1157,13 +1162,14 @@ load("data/cv_summary_4models_data.RData") #four model cross-validation results
                             colour = dist_cat))+
      geom_point()+
      scale_colour_viridis_d(direction = -1,
-                            begin = 0.1,end = 0.8)+
+                            begin = 0.1,end = 0.8,
+                            guide = guide_legend(title = "Distance to \n nearest neighbor"))+
      geom_hline(yintercept = 0)+
      theme_bw()+
      xlab("")+
      ylab("Mean difference (iCAR-GP) \n positive values support iCAR over GP")+
-     guides(guide_legend(title = "Distance to \n nearest neighbor"))+
      labs(caption = capt_tmp)+
+     #guides()+
      theme(plot.caption = element_text(hjust = 0),
            text = element_text(family = "serif",
                                size = 11),
