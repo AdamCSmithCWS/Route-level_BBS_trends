@@ -1,13 +1,15 @@
 ## Prepare data for full model fits
+## alternate code to use bbsBayes2 instead of bbsBayes
 #setwd("C:/GitHub/iCAR_route_2021")
 setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 library(bbsBayes2)
 library(tidyverse)
 library(cmdstanr)
+library(sf)
 source("functions/neighbours_define_voronoi.R") ## function to define neighbourhood relationships
-source("functions/prepare-data-alt.R") ## small alteration of the bbsBayes function
+#source("functions/prepare-data-alt.R") ## small alteration of the bbsBayes function
 ## above source() call over-writes the bbsBayes prepare_data() function
-source("functions/get_basemap_function.R") ## loads one of the bbsBayes strata maps
+#source("functions/get_basemap_function.R") ## loads one of the bbsBayes strata maps
 source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
 
 
@@ -28,7 +30,19 @@ lastYear <- 2021
 
 
 #strat_data <- bbsBayes::stratify(by = strat)
-strat_data <- load_bbs_data(release = 2022)
+strat_data <- load_bbs_data(release = 2023)
+
+#ectract the latitude and longitude of start locations for each route in the database
+route_latlongs <- strat_data$routes %>% 
+  select(country_num,
+         state_num,
+         route,
+         latitude,
+         longitude) %>% 
+  distinct() %>% 
+  rowwise() %>% 
+  mutate(route = paste(state_num,route,sep = "-"))
+
 
 # nrecs_sp <- strat_data$bird_strat %>% 
 #   filter(Year > firstYear) %>% 
@@ -111,35 +125,29 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_stan_data.RData")
 
 
-jags_data <- bbsBayes2::stratify(by = strat,species = species) %>% 
+jags_data_pkg <- bbsBayes2::stratify(by = strat,species = species) %>% 
   bbsBayes2::prepare_data(min_year = firstYear,
     max_year = lastYear,
     min_n_routes = 1,
-    min_max_route_years = 1)
+    min_max_route_years = 1) 
 
-### this is the alternate prepare data function - modified from bbsBayes
-jags_data0 = prepare_data(strat_data = strat_data,
-                              species_to_run = species,
-                              model = model,
-                              #n_knots = 10,
-                              min_year = firstYear,
-                              max_year = lastYear,
-                              min_n_routes = 1,
-                         min_max_route_years = 1)# spatial neighbourhood define --------------------------------------------
+jags_data <- jags_data_pkg[["raw_data"]] %>% 
+  left_join(., route_latlongs,
+            by = c("country_num","state_num","route")) %>% 
+  rename(strat_name = strata_name)
+  
 
 # strata map of one of the bbsBayes base maps
 # helps group and set boundaries for the route-level neighbours,
 ## NOT directly used in the model
-strata_map  <- get_basemap(strata_type = strat,
-                           transform_laea = TRUE,
-                           append_area_weights = FALSE)
+strata_map <- load_map(strat)
 
 
 #create list of routes and locations to ID routes that are not inside of original strata (some off-shore islands)
 route_map1 = unique(data.frame(route = jags_data$route,
                               strat = jags_data$strat_name,
-                              Latitude = jags_data$Latitude,
-                              Longitude = jags_data$Longitude))
+                              Latitude = jags_data$latitude,
+                              Longitude = jags_data$longitude))
 
 #create spatial object of above
 route_map1 = st_as_sf(route_map1,coords = c("Longitude","Latitude"))
@@ -151,7 +159,7 @@ route_map1 = st_transform(route_map1,crs = st_crs(strata_map))
 #drops the routes geographically outside of the strata (some offshore islands) 
 # and adds the strat indicator variable to link to model output
 strata_map_buf <- strata_map %>% 
-  filter(ST_12 %in% route_map1$strat) %>% 
+  filter(strata_name %in% route_map1$strat) %>% 
   summarise() %>% 
   st_buffer(.,10000) #drops any routes with start-points > 10 km outside of strata boundaries
 realized_routes <- route_map1 %>% 
@@ -163,27 +171,27 @@ realized_routes <- route_map1 %>%
 
 # reorganizes data after routes were dropped outside of strata
 new_data <- data.frame(strat_name = jags_data$strat_name,
-                       strat = jags_data$strat,
+                       strat = jags_data$strata,
                        route = jags_data$route,
-                       strat = jags_data$strat_name,
-                       Latitude = jags_data$Latitude,
-                       Longitude = jags_data$Longitude,
+                       #strat = jags_data$strat_name,
+                       Latitude = jags_data$latitude,
+                       Longitude = jags_data$longitude,
                        count = jags_data$count,
-                       year = jags_data$year,
-                       firstyr = jags_data$firstyr,
-                       ObsN = jags_data$ObsN,
-                       r_year = jags_data$r_year) %>% 
+                       year = jags_data$year_num,
+                       firstyr = jags_data$first_year,
+                       ObsN = jags_data$observer,
+                       r_year = jags_data$year) %>% 
   filter(route %in% realized_routes$route)
 
 
 
 
-strata_list <- data.frame(ST_12 = unique(new_data$strat_name),
+strata_list <- data.frame(strata_name = unique(new_data$strat_name),
                           strat = unique(new_data$strat))
 
 
 realized_strata_map <- strata_map %>%
-  filter(ST_12 %in% strata_list$ST_12)
+  filter(strata_name %in% strata_list$strata_name)
 
 # Spatial neighbours set up --------------------
 
@@ -253,9 +261,9 @@ car_stan_dat <- neighbours_define_voronoi(real_point_map = route_map,
 
 
 #prints a map of the route locations and neighbours to confirm reasonable
-pdf(paste0("data/maps/route_map_",firstYear,"-",lastYear,"_",species_f,".pdf"))
-print(car_stan_dat$map)
-dev.off()
+# pdf(paste0("data/maps/route_map_",firstYear,"-",lastYear,"_",species_f,".pdf"))
+# print(car_stan_dat$map)
+# dev.off()
 
 
 
@@ -266,7 +274,7 @@ stan_data[["strat"]] <- new_data$strat
 stan_data[["route"]] <- new_data$routeF
 stan_data[["year"]] <- new_data$year
 stan_data[["firstyr"]] <- new_data$firstyr
-stan_data[["fixedyear"]] <- jags_data$fixedyear
+stan_data[["fixedyear"]] <- floor(mean(c(1:max(new_data$year))))
 
 
 stan_data[["nyears"]] <- max(new_data$year)
