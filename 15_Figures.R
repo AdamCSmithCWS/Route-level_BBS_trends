@@ -5,16 +5,20 @@ library(patchwork)
 library(sf)
  species_sort <- readRDS("data/species_sort.rds")
 # Figure_1 ----------------------------------------------------------------
-
-# demonstration of neighbours for BHVI
+# demonstration of neighbours for BASP
 
 # load saved neighbours data from neighbours_define_voronoi(..., save_plot_data = TRUE)
 
-load("data/Baird's_Sparrow_route_maps_data.RData")
+load("Baird's_Sparrow_route_maps_data.RData")
 
-strata_map2 <- bbsBayes2::load_map("bbs_usgs")
+ crs_use <- st_crs(strata_map)
+ 
+strata_map2 <- bbsBayes2::load_map("bbs_usgs")%>% 
+  st_transform(.,crs_use)
 
-strata_map2 <- st_transform(strata_map2,st_crs(strata_map))
+state_prov <- bbsBayes2::load_map("prov_state") %>% 
+  st_transform(.,crs_use)
+
 
 box <- st_as_sfc(st_bbox(strata_map))
 
@@ -58,11 +62,50 @@ ggp2 <- ggplot()+
         plot.caption = element_text(hjust = 0))
 ggp2
 
+ggp_inset <- ggplot()+ 
+  geom_sf(data = strata_map2,alpha = 1,fill = "white",colour = grey(0.8))+ 
+  geom_sf(data = state_prov,alpha = 0)+
+  geom_sf(data = box, alpha = 0, linewidth = 0.6)+
+  #geom_sf(data = strata_map,alpha = 0,colour = grey(0.2))+ 
+  theme_void() +
+  xlab("")+
+  ylab("")+
+  #coord_sf(label_axes = list(top = "E", left = "N"))+
+  #coord_sf(xlim = xb,ylim = yb)+
+  theme(legend.position = "none",
+        text = element_text(family = "serif",
+                            size = ),
+        #panel.grid = element_line(colour = grey(0.95)),
+        plot.caption = element_text(hjust = 0))
+
+ggp_inset
+# 
+# + inset_element(ggp_inset,left = 0.3,bottom = 0.3,
+#                 right = 1.1, top = 1.1)
+
+
+des <- "
+33311111
+33311111
+#222222#
+#222222#
+"
+
+des <- layout <- c(
+  area(t = 3, l = 1, b = 10, r = 8),
+  area(t = 3, l = 9, b = 10, r = 16),
+  area(t = 1, l = 4, b = 6, r = 10)
+)
+
+ggp1i <- free(ggp1) + free(ggp2) + free(ggp_inset) + plot_layout(design = des)
+
+ggp1i
+
 
 pdf("Figures/Figure_1.pdf",
-    width = 7.5,
-    height = 10)
-print(ggp1 + ggp2 + plot_layout(nrow = 2))
+    width = 7,
+    height = 5)
+print(ggp1i )
 dev.off()
 
 
@@ -173,9 +216,10 @@ spp <- paste0("_GP_")
 print(spag)
   dev.off()
   
-# Figure 2 and 3 - 4 model comparison -------------------------------------------
-output_dir <- "F:/iCAR_route_2021/output"
-base_strata_map <- bbsBayes2::load_map("bbs_usgs")
+# Figure 5 and 6 - 4 model comparison -------------------------------------------
+output_dir <- "d:/iCAR_route_2021/output"
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")%>% 
+  st_transform(.,crs_use)
 
   
 firstYear <- 2006
@@ -306,6 +350,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     geom_sf(data = base_strata_map,
             fill = NA,
             colour = grey(0.75))+
+    geom_sf(data = state_prov,
+            fill = NA,
+            colour = grey(0.5))+
     geom_sf(data = plot_map,
             aes(colour = Tplot,
                 size = abundance_mean))+
@@ -323,7 +370,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     #labs(title = paste(species, "trends"))+
     facet_wrap(vars(model))
   
-  pdf(paste0("Figures/Figure_2.pdf"),
+  pdf(paste0("Figures/Figure_5.pdf"),
       height = 7,
       width = 7.5)
   print(map)
@@ -361,6 +408,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     geom_sf(data = base_strata_map,
             fill = NA,
             colour = grey(0.75))+
+    geom_sf(data = state_prov,
+            fill = NA,
+            colour = grey(0.5))+
     geom_sf(data = plot_map,
             aes(colour = abundance_mean,
                 size = abundance_sd/abundance_mean),
@@ -379,7 +429,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     #labs(title = paste(species, "abundance"))+
     facet_wrap(vars(model))
   
-  pdf(paste0("Figures/Figure_3.pdf"),
+  pdf(paste0("Figures/Figure_6.pdf"),
       height = 7,
       width = 7.5)
   print(map_abund)
@@ -434,7 +484,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
   
   
 
-# Figure 4 ----------------------------------------------------------------
+# Figure 7 ----------------------------------------------------------------
 
   ## CV summary for all 4 models
 
@@ -575,7 +625,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
   
   
 
-# Figure 5 ----------------------------------------------------------------
+# Figure 8 ----------------------------------------------------------------
 
   #read in the saved cross validation summary from file "CV_summary_2_models.R"
   cv_sum <- readRDS("output/saved_cross_validation_summary_2_models.rds")
@@ -654,15 +704,16 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
   
   
 
-# Figure 6 ----------------------------------------------------------------
+# Figure 9 ----------------------------------------------------------------
 
   ### iCAR vs nonspatial comparison maps for 4 species (2x4 maps)
   
   species_sel <- c("American Robin","Hairy Woodpecker",
                    "Common Yellowthroat","Bald Eagle")
 
-  output_dir <- "F:/iCAR_route_2021/output"
-  base_strata_map <- bbsBayes2::load_map("bbs_usgs")
+  output_dir <- "d:/iCAR_route_2021/output"
+  base_strata_map <- bbsBayes2::load_map("bbs_usgs")%>% 
+    st_transform(.,crs_use)
   
   
   firstYear <- 2006
@@ -777,6 +828,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       geom_sf(data = base_strata_map,
               fill = NA,
               colour = grey(0.75))+
+      geom_sf(data = state_prov,
+              fill = NA,
+              colour = grey(0.5))+
       geom_sf(data = plot_map_out,
               aes(colour = Tplot),
               size = 0.01,
@@ -793,7 +847,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       facet_grid(cols = vars(model),
                  rows = vars(sp))
     
-    pdf(paste0("Figures/Figure_6.pdf"),
+    pdf(paste0("Figures/Figure_9.pdf"),
         height = 10,
         width = 7.5)
     print(map)
@@ -812,6 +866,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       geom_sf(data = base_strata_map,
               fill = NA,
               colour = grey(0.75))+
+      geom_sf(data = state_prov,
+              fill = NA,
+              colour = grey(0.5))+
       geom_sf(data = plot_map_out,
               aes(colour = trend_sd,
                   size = abundance_sd))+
@@ -840,7 +897,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     
 
 
-# Figure 7 ----------------------------------------------------------------
+# Figure 10 ----------------------------------------------------------------
 
   
   ### add a GP vs iCAR map comparison for two extreme cv difference species
@@ -851,8 +908,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
     
     species_sel <- c("Canyon Towhee","Western Bluebird")
     
-    output_dir <- "F:/iCAR_route_2021/output"
-    base_strata_map <- bbsBayes2::load_map("bbs_usgs")
+    output_dir <- "d:/iCAR_route_2021/output"
+    base_strata_map <- bbsBayes2::load_map("bbs_usgs")%>% 
+      st_transform(.,crs_use)
     
     species_latin1 <- bbsBayes2::search_species(species_sel[1])
     species_latin1 <- paste(species_latin1[1,"genus"],species_latin1[1,"species"])
@@ -988,6 +1046,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       geom_sf(data = base_strata_map,
               fill = NA,
               colour = grey(0.75))+
+      geom_sf(data = state_prov,
+              fill = NA,
+              colour = grey(0.5))+
       geom_sf(data = plot_map_out,
               aes(colour = Tplot,
                   size = abundance_mean))+
@@ -1004,7 +1065,7 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       facet_grid(cols = vars(model),
                  rows = vars(sp))
     
-    pdf(paste0("Figures/Figure_7.pdf"),
+    pdf(paste0("Figures/Figure_10.pdf"),
         height = 6,
         width = 7.5)
     print(map)
@@ -1029,6 +1090,9 @@ species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),patter
       geom_sf(data = base_strata_map,
               fill = NA,
               colour = grey(0.75))+
+      geom_sf(data = state_prov,
+              fill = NA,
+              colour = grey(0.5))+
       geom_sf(data = plot_map_out,
               aes(colour = trend_sd,
                   size = abundance_sd))+
