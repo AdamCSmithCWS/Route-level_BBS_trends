@@ -8,7 +8,7 @@ library(patchwork)
 
 
 #output_dir <- "output"
-output_dir <- "d:/iCAR_route_2021/output"
+output_dir <- "e:/iCAR_route_2021/output"
 
 crs_use <- readRDS("functions/custom_crs_for_maps.rds")
 
@@ -32,6 +32,9 @@ ppy <- function(x){
 }
 # SPECIES LOOP ------------------------------------------------------------
 
+
+estimates_compile <- NULL
+
 pdf(paste0("Figures/Figure_S3.pdf"),
     height = 11,
     width = 8)
@@ -48,7 +51,9 @@ for(species in species_list_broad){
   
   out_base_temp <- paste0(species_f,"_nonspatial_",firstYear,"_",lastYear)
   
-  if(!file.exists(paste0(output_dir,"/",out_base_temp,"_summ_fit.rds"))){next}
+  if(!file.exists(paste0(output_dir,"/",out_base_temp,"_summ_fit.rds"))){
+    print(paste("fitted models missing for",species))
+    next}
     
     
 
@@ -127,7 +132,18 @@ plot_map <- route_map %>%
          model = factor(model,
                         levels = c("iCAR","GP","BYM","Non-spatial"),
                         ordered = TRUE),
-         abundance_cv = abundance_sd/abundance_mean)
+         abundance_cv = (abundance_q95-abundance_q5)/(abundance_median*4))
+
+
+plot_map_df <- plot_map %>%
+  sf::st_transform(.,st_crs(4269)) %>% 
+  dplyr::mutate(longitude = sf::st_coordinates(.)[,1],
+                latitude = sf::st_coordinates(.)[,2]) %>% 
+  sf::st_drop_geometry()
+plot_map_df$species <- species
+
+estimates_compile <- bind_rows(estimates_compile,plot_map_df)
+
 
 breaks <- c(-7, -4, -2, -1, -0.5, 0.5, 1, 2, 4, 7)
 lgnd_head <- "Mean Trend\n"
@@ -210,6 +226,15 @@ print(fullmap)
 
 
 dev.off()
+
+estimates_out <- estimates_compile %>% 
+  select(species,model,route,latitude,longitude,
+         trend_median,trend_sd,trend_q5,trend_q95,
+         abundance_median,abundance_q5,abundance_q95,abundance_cv)
+
+write_csv(estimates_out,
+          "data_open/All_estimates_from_species_w_two_models.csv")
+
 
 
 

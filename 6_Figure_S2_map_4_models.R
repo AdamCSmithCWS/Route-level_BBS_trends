@@ -7,8 +7,8 @@ library(sf)
 library(patchwork)
 
 
-output_dir <- "output"
-output_dir <- "d:/iCAR_route_2021/output"
+#output_dir <- "output"
+output_dir <- "e:/iCAR_route_2021/output"
 
 crs_use <- readRDS("functions/custom_crs_for_maps.rds")
 
@@ -36,8 +36,10 @@ ppy <- function(x){
 }
 # SPECIES LOOP ------------------------------------------------------------
 
-outboth_save <- NULL
+#outboth_save <- NULL
 re_summarize <- FALSE # set to true if running for the first time
+estimates_compile <- NULL
+
 
 pdf(paste0("Figures/Figure_S2.pdf"),
     height = 11,
@@ -53,7 +55,9 @@ for(species in species_list){
   
   out_base_temp <- paste0(species_f,"_GP_",firstYear,"_",lastYear)
   
-  if(!file.exists(paste0(output_dir,"/",out_base_temp,"_summ_fit.rds"))){next}
+  if(!file.exists(paste0(output_dir,"/",out_base_temp,"_summ_fit.rds"))){
+    print(paste("missing fitted model for",species))
+    next}
     
     
 
@@ -116,7 +120,7 @@ outboth <- bind_rows(outboth,both) %>%
 
 saveRDS(outboth,
         paste0("output/predictions_4_models_",species_f,".RDS"))
-outboth_save <- bind_rows(outboth_save,outboth)
+# outboth_save <- bind_rows(outboth_save,outboth)
 
 
 } #end models loop
@@ -144,7 +148,17 @@ plot_map <- route_map %>%
          model = factor(model,
                         levels = c("iCAR","GP","BYM","Non-spatial"),
                         ordered = TRUE),
-         abundance_cv = abundance_sd/abundance_mean)
+         abundance_cv = (abundance_q95-abundance_q5)/(abundance_median*4))
+
+plot_map_df <- plot_map %>%
+  sf::st_transform(.,st_crs(4269)) %>% 
+  dplyr::mutate(longitude = sf::st_coordinates(.)[,1],
+                latitude = sf::st_coordinates(.)[,2],
+                species = species) %>% 
+  sf::st_drop_geometry()
+plot_map_df$species <- species
+
+estimates_compile <- bind_rows(estimates_compile,plot_map_df)
 
 breaks <- c(-7, -4, -2, -1, -0.5, 0.5, 1, 2, 4, 7)
 lgnd_head <- "Mean Trend\n"
@@ -224,4 +238,45 @@ print(fullmap)
 }#end species loop
 
 dev.off()
+
+
+estimates_out <- estimates_compile %>% 
+  select(species,model,route,latitude,longitude,
+         trend_median,trend_sd,trend_q5,trend_q95,
+         abundance_median,abundance_q5,abundance_q95,abundance_cv)
+
+write_csv(estimates_out,
+          "data_open/All_estimates_from_species_w_four_models.csv")
+
+
+
+# exporting the icar trends for all species and routes --------------------
+
+
+icar2m <- read_csv("data_open/All_estimates_from_species_w_two_models.csv") %>% 
+  filter(model == "iCAR")
+
+icar4m <- read_csv("data_open/All_estimates_from_species_w_four_models.csv") %>% 
+  filter(model == "iCAR")
+
+
+bbs_all_data <- bbsBayes2::load_bbs_data(release = 2022)
+bbs_routes_strata <- bbs_all_data$routes %>%
+  select(country,route_name,state_num,route,
+         bcr,st_abrev) %>% 
+  distinct() %>% 
+  mutate(route_num = route,
+         route = paste0(state_num,"-",route_num))
+  
+
+
+icar_out <- bind_rows(icar2m,icar4m) %>% 
+  left_join(.,bbs_routes_strata,
+            by = "route") %>% 
+  select(-c(abundance_median:abundance_cv))
+
+write_csv(icar_out,"data_open/all_route_level_bbs_trends.csv")
+
+
+
 
