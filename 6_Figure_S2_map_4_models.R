@@ -1,6 +1,6 @@
 
 #setwd("C:/GitHub/iCAR_route_2021")
-setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
+#setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 library(tidyverse)
 library(cmdstanr)
 library(sf)
@@ -8,8 +8,17 @@ library(patchwork)
 
 
 output_dir <- "output"
-output_dir <- "F:/iCAR_route_2021/output"
-base_strata_map <- bbsBayes2::load_map("bbs_usgs")
+output_dir <- "d:/iCAR_route_2021/output"
+
+crs_use <- readRDS("functions/custom_crs_for_maps.rds")
+
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")%>% 
+  st_transform(.,crs_use)
+
+state_prov <- bbsBayes2::load_map("prov_state") %>% 
+  st_transform(.,crs_use)
+
+
 
 
 species_list <- readRDS("data/species_to_include_4_model_comparison.rds")
@@ -154,6 +163,9 @@ map <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map,
           aes(colour = Tplot,
               size = abundance_mean))+
@@ -181,6 +193,9 @@ map_se <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map,
           aes(colour = trend_sd,
               size = abundance_cv))+

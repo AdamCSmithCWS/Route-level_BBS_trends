@@ -1,13 +1,13 @@
 
 
-setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
+#setwd("C:/Users/SmithAC/Documents/GitHub/iCAR_route_2021")
 
 
 
 
 
-
-library(bbsBayes)#original version of bbsBayes package
+library(bbsBayes2)#updated version of bbsBayes package
+library(bbsBayes) # archived earlier version of bbsBayes
 library(tidyverse)
 library(sf)
 library(cmdstanr)
@@ -24,17 +24,28 @@ strat = "bbs_usgs"
 model = "slope"
 
 
+crs_use <- readRDS("functions/custom_crs_for_maps.rds")
+
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")%>% 
+  st_transform(.,crs_use)
+
+state_prov <- bbsBayes2::load_map("prov_state") %>% 
+  st_transform(.,crs_use)
+
+
 
 strat_data <- bbsBayes::stratify(by = strat)
 
 
-species_list <- c("American Coot",
-                  "Pied-billed Grebe",
-                  "Northern Shoveler",
-                  "Black Tern",
-                  "Eared Grebe",
-                  "Horned Grebe",
-                  "Sora")
+# species_list <- c("American Coot",
+#                   "Pied-billed Grebe",
+#                   "Northern Shoveler",
+#                   "Black Tern",
+#                   "Eared Grebe",
+#                   "Horned Grebe",
+#                   "Sora")
+
+species_list <- c("Horned Grebe")
 
 
 
@@ -49,13 +60,13 @@ exp_t <- function(x){
   y <- (exp(x)-1)*100
 }
 
-firstYear <- 2001
+firstYear <- 1975
 lastYear <- 2017
 
 
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
-sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
+sp_data_file <- paste0("data_open/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
 
 
 
@@ -123,9 +134,9 @@ new_data <- data.frame(strat_name = jags_data$strat_name,
 
 # Load covariate data -------------------------------------------------------
 
-clim <- read.csv("data/HOGR_climate_covariates.csv")
+clim <- read.csv("data_open/HOGR_climate_covariates.csv")
 
-clim2 <- read.csv("data/HOGR_ponds_buffer.csv")
+clim2 <- read.csv("data_open/HOGR_ponds_buffer.csv")
 ### include the ponds variable
 clim <- clim %>% 
   inner_join(.,clim2,by = c("Route" = "ProvRoute",
@@ -297,8 +308,9 @@ mod.file = paste0("models/slope",spp,"route_NB.stan")
 
 slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
 
+re_fit <- FALSE # set to TRUE if rerunning Stan model
 
-
+if(re_fit){
 stanfit <- slope_model$sample(
   data=stan_data,
   refresh=400,
@@ -314,6 +326,12 @@ saveRDS(stanfit,
 
 saveRDS(summ,
         paste0(output_dir,"/",out_base,"_summ_fit.rds"))
+
+}else{
+  stanfit <- readRDS(paste0(output_dir,"/",out_base,"_stanfit.rds"))
+  summ <- readRDS(paste0(output_dir,"/",out_base,"_summ_fit.rds"))
+}
+
 
 summ %>% arrange(-rhat)
 
@@ -332,7 +350,7 @@ slope_model <- cmdstan_model(mod.file, stanc_options = list("Oexperimental"))
 
 stan_data[["pond"]] <- NULL
 
-
+if(refit){
 stanfit_simple <- slope_model$sample(
   data=stan_data,
   refresh=400,
@@ -348,6 +366,11 @@ saveRDS(stanfit_simple,
 
 saveRDS(summ_simple,
         paste0(output_dir,"/",out_base,"_simple_summ_fit.rds"))
+}else{
+  stanfit_simple <- readRDS(paste0(output_dir,"/",out_base,"_simple_stanfit.rds"))
+  summ_simple <- readRDS(paste0(output_dir,"/",out_base,"_simple_summ_fit.rds"))
+}
+
 
 
 BETA_simple <- summ_simple %>% 
@@ -357,8 +380,6 @@ BETA_simple <- summ_simple %>%
 
 
 
-summ <- readRDS(paste0(output_dir,"/",out_base,"_summ_fit.rds"))
-summ_simple <- readRDS(paste0(output_dir,"/",out_base,"_simple_summ_fit.rds"))
 
 pond_eff <- summ %>% 
   filter(variable == "RHO") %>% 
@@ -381,8 +402,6 @@ exp_t <- function(x){
 
 # plot trends -------------------------------------------------------------
 
-
-base_strata_map <- bbsBayes2::load_map("bbs_usgs")
 
 
 strata_bounds <- st_union(route_map) #union to provide a simple border of the realised strata
@@ -445,6 +464,9 @@ map <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map,
           aes(colour = Tplot,
               size = trend_se))+
@@ -465,6 +487,9 @@ map_ponds <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map2,
           aes(colour = ponds))+
   scale_colour_viridis_c(begin = 0.1, end = 0.9,
@@ -478,6 +503,9 @@ map_ponds_lc <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map2,
           aes(colour = ponds_lci))+
   scale_colour_viridis_c(begin = 0.1, end = 0.9,
@@ -493,6 +521,9 @@ map_ponds_lc <- ggplot()+
 #   geom_sf(data = base_strata_map,
 #           fill = NA,
 #           colour = grey(0.75))+
+# geom_sf(data = state_prov,
+#         fill = NA,
+#         colour = grey(0.5))+
 #   geom_sf(data = plot_map,
 #           aes(colour = trend_se,
 #               size = abundance_se))+

@@ -11,7 +11,7 @@ library(sf)
 
 load("Baird's_Sparrow_route_maps_data.RData")
 
- crs_use <- st_crs(strata_map)
+crs_use <- readRDS("functions/custom_crs_for_maps.rds")
  
 strata_map2 <- bbsBayes2::load_map("bbs_usgs")%>% 
   st_transform(.,crs_use)

@@ -35,6 +35,7 @@ Finally, we also fit the same data to the simple iCAR model (i.e., an identical 
 
 ```{r setup, eval=TRUE}
 
+library(bbsBayes2) #updated version of bbsBayes package
 library(bbsBayes)#original version of bbsBayes package
 library(tidyverse)
 library(sf)
@@ -66,7 +67,7 @@ lastYear <- 2017
 
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
-sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
+sp_data_file <- paste0("data_open/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
 
 
 ```
@@ -140,9 +141,9 @@ new_data <- data.frame(strat_name = jags_data$strat_name,
 
 # Load covariate data -------------------------------------------------------
 
-clim <- read.csv("data/HOGR_climate_covariates.csv")
+clim <- read.csv("data_open/HOGR_climate_covariates.csv")
 
-clim2 <- read.csv("data/HOGR_ponds_buffer.csv")
+clim2 <- read.csv("data_open/HOGR_ponds_buffer.csv")
 ### include the ponds variable
 clim <- clim %>% 
   inner_join(.,clim2,by = c("Route" = "ProvRoute",
@@ -250,7 +251,7 @@ car_stan_dat <- neighbours_define_voronoi(real_point_map = route_map,
 ## a relative measure of concavity. 1 results in a relatively detailed shape, Infinity results in a convex hull.
 
 
-pdf(paste0("data/maps/route_map_",firstYear,"-",lastYear,"_",species_f,".pdf"))
+pdf(paste0("data_open/maps/route_map_",firstYear,"-",lastYear,"_",species_f,".pdf"))
 print(car_stan_dat$map)
 dev.off()
 
@@ -424,7 +425,13 @@ exp_t <- function(x){
 # plot trends -------------------------------------------------------------
 
 
-base_strata_map <- bbsBayes2::load_map("bbs_usgs")
+crs_use <- readRDS("functions/custom_crs_for_maps.rds")
+
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")%>% 
+  st_transform(.,crs_use)
+
+state_prov <- bbsBayes2::load_map("prov_state") %>% 
+  st_transform(.,crs_use)
 
 
 strata_bounds <- st_buffer(st_union(route_map), 
@@ -488,6 +495,9 @@ map <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map,
           aes(colour = Tplot,
               size = trend_se))+
@@ -511,6 +521,9 @@ map_ponds <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map2,
           aes(colour = ponds))+
   scale_colour_viridis_c(begin = 0.1, end = 0.9,
@@ -525,6 +538,9 @@ map_ponds_lc <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map2,
           aes(colour = ponds_lci))+
   scale_colour_viridis_c(begin = 0.1, end = 0.9,
@@ -549,7 +565,7 @@ map_save2 <- map_ponds / map_ponds_lc
 
 saveRDS(map_save2,paste0("Figures/saved_map2_",species_f,"_covariate_",firstYear,".rds"))
 
-pdf(paste0("Figures/Figure_9.pdf"),
+pdf(paste0("Figures/Figure_12.pdf"),
     height = 4,
     width = 7)
 

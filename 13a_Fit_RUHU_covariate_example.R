@@ -8,6 +8,15 @@ library(patchwork)
 output_dir <- "output"
 species <- "Rufous Hummingbird" 
 
+crs_use <- readRDS("functions/custom_crs_for_maps.rds")
+
+base_strata_map <- bbsBayes2::load_map("bbs_usgs")%>% 
+  st_transform(.,crs_use)
+
+state_prov <- bbsBayes2::load_map("prov_state") %>% 
+  st_transform(.,crs_use)
+
+
 
 species_f <- gsub(gsub(species,pattern = " ",replacement = "_",fixed = T),pattern = "'",replacement = "",fixed = T)
 
@@ -26,7 +35,7 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
 
-sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
+sp_data_file <- paste0("Data_open/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
 
 
 load(sp_data_file)
@@ -79,7 +88,7 @@ lastYear <- 2021
 
 out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
-sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
+sp_data_file <- paste0("data_open/",species_f,"_",firstYear,"_",lastYear,"_covariate_stan_data.RData")
 
 load(sp_data_file)
 
@@ -113,7 +122,6 @@ exp_t <- function(x){
 # plot trends -------------------------------------------------------------
 
 
-base_strata_map <- bbsBayes2::load_map("bbs_usgs")
 
 
 strata_bounds <- st_buffer(st_union(route_map),
@@ -190,6 +198,9 @@ map <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map,
           aes(colour = Tplot,
               size = abundance))+
@@ -208,6 +219,9 @@ map_abund <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map,
           aes(colour = abundance))+
   scale_colour_viridis_c(begin = 0.1, end = 0.9,
@@ -233,6 +247,9 @@ map_hab <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_hab_map,
           aes(colour = habitat_mean))+
   scale_colour_viridis_c(begin = 0.1, end = 0.9,
@@ -249,6 +266,9 @@ map_hab_slope <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_hab_map,
           aes(colour = habitat_slope))+
   colorspace::scale_colour_continuous_diverging(name = paste0("Change in Habitat"),
@@ -275,6 +295,9 @@ map_se <- ggplot()+
   geom_sf(data = base_strata_map,
           fill = NA,
           colour = grey(0.75))+
+  geom_sf(data = state_prov,
+          fill = NA,
+          colour = grey(0.5))+
   geom_sf(data = plot_map,
           aes(colour = trend_se,
               size = abundance_se))+
@@ -306,7 +329,7 @@ map_se <- ggplot()+
 # 
 # dev.off()
 
-pdf(paste0("Figures/Figure_8.pdf"),
+pdf(paste0("Figures/Figure_11.pdf"),
     height = 5,
     width = 7)
 

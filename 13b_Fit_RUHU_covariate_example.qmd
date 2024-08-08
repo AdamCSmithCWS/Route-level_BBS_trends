@@ -75,7 +75,7 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
 
-sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,
+sp_data_file <- paste0("data_open/",species_f,"_",firstYear,"_",lastYear,
                        "_covariate_stan_data.RData")
 
 
