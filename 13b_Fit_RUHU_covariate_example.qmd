@@ -1,6 +1,9 @@
 ---
 title: "Supplemental methods for Rufous Hummingbird habitat covariate example"
-format: pdf
+format: 
+  pdf:
+    include-in-header: 
+      text: '\pagenumbering{gobble}'
 fig-width: 7
 fig-height: 8
 editor: visual

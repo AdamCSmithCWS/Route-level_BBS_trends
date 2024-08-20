@@ -1,6 +1,9 @@
 ---
 title: "Supplemental methods for Horned Grebe habitat covariate example"
-format: pdf
+format: 
+  pdf:
+    include-in-header: 
+      text: '\pagenumbering{gobble}'
 fig-width: 7
 fig-height: 8
 editor: visual
@@ -15,7 +18,7 @@ bibliography: references_HOGR.bib
 
 ## Model structure
 
-The model is an elaboration of the iCAR route-level trend model, where the route-level intercepts and slopes are estimates of relative abundances and trends, after accounting for the effects of annual fluctuations caused by a route-level annual climate-related predictor. The route-level predictors are derived from a study of the effects of moisture/drought patterns on Horned Grebe (*Podiceps auritus*) trends in Canada. To represent annual variation in available habitat for wetland birds, we used the data collected by the United States Fish and Wildlife Service and the Canadian Wildlife Service on the number of ponds (primarily, temporary small wetlands often referred to as "Prairie Potholes") during aerial surveys (Waterfowl Breeding Population and Habitat Survey Data. 1955-2022\[https://ecos.fws.gov/ServCat/Reference/Profile/140698\]). Annual fluctuations in moisture have a strong influence on the number of these wetlands available for waterbird habitat in the Prairie Pothole region of Canada. These annual fluctuations could complicate assessments of a possible long-term decline in the species' population, if strong short-term fluctuations in the amount of habitat being surveyed could overwhelm or counter-act longer-term gradual changes in populations. We designed this model to estimate the long-term rate of population change after statistically controlling for the annual variations in available habitat.
+The model is an elaboration of the iCAR route-level trend model, where the route-level intercepts and slopes are estimates of relative abundances and trends, after accounting for the effects of annual fluctuations caused by a route-level annual climate-related predictor. The route-level predictors are derived from a study of the effects of moisture/drought patterns on Horned Grebe (*Podiceps auritus*) trends in Canada. To represent annual variation in available habitat for wetland birds, we used the data collected by the United States Fish and Wildlife Service and the Canadian Wildlife Service on the number of ponds (primarily, temporary small wetlands often referred to as "Prairie Potholes") during aerial surveys (Waterfowl Breeding Population and Habitat Survey Data. 1955-2022)\[https://ecos.fws.gov/ServCat/Reference/Profile/140698\]. Annual fluctuations in moisture have a strong influence on the number of these wetlands available for waterbird habitat in the Prairie Pothole region of Canada. These annual fluctuations could complicate assessments of a possible long-term decline in the species' population, if strong short-term fluctuations in the amount of habitat being surveyed could overwhelm or counter-act longer-term gradual changes in populations. We designed this model to estimate the long-term rate of population change after statistically controlling for the annual variations in available habitat.
 
 The model is based on the iCAR models in the main paper, but includes count-level predictors for the effects of available habitat.
 
