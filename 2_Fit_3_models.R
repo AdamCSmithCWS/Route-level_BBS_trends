@@ -20,7 +20,7 @@ firstYear <- 2006
 lastYear <- 2021
 
 skip_bym <- FALSE
-rerun <- TRUE
+rerun <- FALSE
 
 if(rerun){
 # SPECIES LOOP ------------------------------------------------------------
@@ -30,11 +30,11 @@ conv_rerun <- readRDS("data/convergence_fail_rerun.rds") %>%
   rename(speciesl = species) %>% 
   arrange(speciesl)
 
-sp_list_rerun <- unique(conv_rerun$speciesl)
+species_list <- unique(conv_rerun$speciesl)
 }
 # I've got this running as a species loop with a time-spans loop nested within
 # it would be more efficient to run it in parallel using the foreach and parallel packages, but I can't seem to get Stan to work using these parallel options
-for(species in sp_list_rerun){
+for(species in species_list){
 #species <- species_list[2]
 
   
