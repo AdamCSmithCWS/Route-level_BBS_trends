@@ -10,7 +10,7 @@ source("functions/neighbours_define_voronoi.R") ## function to define neighbourh
 #source("functions/prepare-data-alt.R") ## small alteration of the bbsBayes function
 ## above source() call over-writes the bbsBayes prepare_data() function
 #source("functions/get_basemap_function.R") ## loads one of the bbsBayes strata maps
-source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
+# source("functions/posterior_summary_functions.R") ## functions similar to tidybayes that work on cmdstanr output
 
 
 
@@ -24,25 +24,12 @@ strat = "bbs_usgs"
 model = "slope"
 
 
-firstYear <- 2006
-lastYear <- 2021
+firstYear <- 2004
+lastYear <- 2024
 
 
 
-#strat_data <- bbsBayes::stratify(by = strat)
-strat_data <- load_bbs_data(release = 2023)
-
-#ectract the latitude and longitude of start locations for each route in the database
-route_latlongs <- strat_data$routes %>% 
-  select(country_num,
-         state_num,
-         route,
-         latitude,
-         longitude) %>% 
-  distinct() %>% 
-  rowwise() %>% 
-  mutate(route = paste(state_num,route,sep = "-"))
-
+strat_data <- load_bbs_data(release = 2025)
 
 # nrecs_sp <- strat_data$bird_strat %>% 
 #   filter(Year > firstYear) %>% 
@@ -67,7 +54,6 @@ nrecs_sp <- strat_data$birds %>%
          !grepl("unid",english)) %>% 
   arrange(num_counts)
 
-#nrecs_sp <- readRDS("data/nobs_by_sp.rds")
 
 sp_small_range <- nrecs_sp %>% 
   mutate(obs_route = num_counts/num_routes) %>% 
@@ -75,8 +61,8 @@ sp_small_range <- nrecs_sp %>%
          num_routes < 400,
          num_counts > 600,
          obs_route > 4,
-         !grepl("(",english,fixed = TRUE),
-         english != "Black Tern") %>% 
+         !grepl("^\\(",english), #removing the subspecies 
+         english != "Black Tern") %>% #removing one species for which all models seem to fail
   arrange(seq)
 
 
@@ -88,7 +74,7 @@ saveRDS(species_list,"data/species_to_include_4_model_comparison.rds")
 sp_notsmall_range <- nrecs_sp %>% 
   mutate(obs_route = num_counts/num_routes) %>% 
   filter(num_routes >= 400,
-         !grepl("(",english,fixed = TRUE))%>% 
+         !grepl("^\\(",english))%>% 
   arrange(seq)
 
 species_list_broad <- as.character(sp_notsmall_range$english)
@@ -121,20 +107,19 @@ out_base <- paste0(species_f,spp,firstYear,"_",lastYear)
 
 
 
-
+#directory to save data_file
 sp_data_file <- paste0("Data/",species_f,"_",firstYear,"_",lastYear,"_stan_data.RData")
 
 
-jags_data_pkg <- bbsBayes2::stratify(by = strat,species = species) %>% 
+data_pkg <- bbsBayes2::stratify(by = strat,species = species,
+                                use_map = FALSE) %>% 
   bbsBayes2::prepare_data(min_year = firstYear,
     max_year = lastYear,
     min_n_routes = 1,
     min_max_route_years = 1) 
 
-jags_data <- jags_data_pkg[["raw_data"]] %>% 
-  left_join(., route_latlongs,
-            by = c("country_num","state_num","route")) %>% 
-  rename(strat_name = strata_name)
+raw_data <- data_pkg[["raw_data"]] # package now retains the lat long information for each route
+
   
 
 # strata map of one of the bbsBayes base maps
@@ -144,14 +129,17 @@ strata_map <- load_map(strat)
 
 
 #create list of routes and locations to ID routes that are not inside of original strata (some off-shore islands)
-route_map1 = unique(data.frame(route = jags_data$route,
-                              strat = jags_data$strat_name,
-                              Latitude = jags_data$latitude,
-                              Longitude = jags_data$longitude))
+route_map1 <- raw_data %>% 
+  select(route,strata_name,latitude,longitude) %>% 
+  distinct()
+  # unique(data.frame(route = raw_data$route,
+  #                             strat = raw_data$strata_name,
+  #                             latitude = raw_data$latitude,
+  #                             longitude = raw_data$longitude))
 
 #create spatial object of above
-route_map1 = st_as_sf(route_map1,coords = c("Longitude","Latitude"))
-st_crs(route_map1) <- 4269 #NAD83 commonly used by US federal agencies
+route_map1 <- st_as_sf(route_map1,coords = c("longitude","latitude"))
+st_crs(route_map1) <- 4326 #BBS database indicates that coordinates are now stored in WGS 84
 
 #reconcile the projections of routes and base bbs strata
 route_map1 = st_transform(route_map1,crs = st_crs(strata_map))
@@ -159,7 +147,7 @@ route_map1 = st_transform(route_map1,crs = st_crs(strata_map))
 #drops the routes geographically outside of the strata (some offshore islands) 
 # and adds the strat indicator variable to link to model output
 strata_map_buf <- strata_map %>% 
-  filter(strata_name %in% route_map1$strat) %>% 
+  filter(strata_name %in% route_map1$strata_name) %>% 
   summarise() %>% 
   st_buffer(.,10000) #drops any routes with start-points > 10 km outside of strata boundaries
 realized_routes <- route_map1 %>% 
@@ -170,17 +158,16 @@ realized_routes <- route_map1 %>%
 
 
 # reorganizes data after routes were dropped outside of strata
-new_data <- data.frame(strat_name = jags_data$strat_name,
-                       strat = jags_data$strata,
-                       route = jags_data$route,
-                       #strat = jags_data$strat_name,
-                       Latitude = jags_data$latitude,
-                       Longitude = jags_data$longitude,
-                       count = jags_data$count,
-                       year = jags_data$year_num,
-                       firstyr = jags_data$first_year,
-                       ObsN = jags_data$observer,
-                       r_year = jags_data$year) %>% 
+new_data <- data.frame(strat_name = raw_data$strata_name,
+                       strat = raw_data$strata,
+                       route = raw_data$route,
+                       latitude = raw_data$latitude,
+                       longitude = raw_data$longitude,
+                       count = raw_data$count,
+                       year = raw_data$year,
+                       firstyr = raw_data$first_year,
+                       ObsN = raw_data$observer,
+                       r_year = raw_data$year) %>% 
   filter(route %in% realized_routes$route)
 
 
@@ -201,8 +188,8 @@ new_data$routeF <- as.integer(factor((new_data$route))) #main route-level intege
 route_map = unique(data.frame(route = new_data$route,
                               routeF = new_data$routeF,
                               strat = new_data$strat_name,
-                              Latitude = new_data$Latitude,
-                              Longitude = new_data$Longitude))
+                              latitude = new_data$latitude,
+                              longitude = new_data$longitude))
 
 
 # reconcile duplicate spatial locations -----------------------------------
@@ -213,21 +200,21 @@ route_map = unique(data.frame(route = new_data$route,
 # these duplicates happen when a "new" route is established (i.e., a route is re-named) 
 # because some large proportion
 # of the end of a route is changed, but the start-point remains the same
-dups = which(duplicated(route_map[,c("Latitude","Longitude")]))
+dups = which(duplicated(route_map[,c("latitude","longitude")]))
 while(length(dups) > 0){
-  route_map[dups,"Latitude"] <- route_map[dups,"Latitude"]+0.01 #=0.01 decimal degrees ~ 1km
-  route_map[dups,"Longitude"] <- route_map[dups,"Longitude"]+0.01 #=0.01 decimal degrees ~ 1km
-  dups = which(duplicated(route_map[,c("Latitude","Longitude")]))
+  route_map[dups,"latitude"] <- route_map[dups,"latitude"]+0.01 #=0.01 decimal degrees ~ 1km
+  route_map[dups,"longitude"] <- route_map[dups,"longitude"]+0.01 #=0.01 decimal degrees ~ 1km
+  dups = which(duplicated(route_map[,c("latitude","longitude")]))
   
 }
-dups = which(duplicated(route_map[,c("Latitude","Longitude")])) 
+dups = which(duplicated(route_map[,c("latitude","longitude")])) 
 if(length(dups) > 0){stop(paste(spec,"At least one duplicate route remains"))}
 
 
 
 #create spatial object from route_map dataframe
-route_map = st_as_sf(route_map,coords = c("Longitude","Latitude"))
-st_crs(route_map) <- 4269 #NAD83 commonly used by US federal agencies
+route_map = st_as_sf(route_map,coords = c("longitude","latitude"))
+st_crs(route_map) <- 4326 #BBS database indicates that coordinates are now stored in WGS 84
 
 
 #reproject teh routes spatial object ot match the strata-map in equal area projection
