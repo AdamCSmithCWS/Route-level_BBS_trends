@@ -24,8 +24,8 @@ strat = "bbs_usgs"
 model = "slope"
 
 
-firstYear <- 2004
-lastYear <- 2024
+firstYear <- 2014
+lastYear <- 2023
 
 
 
@@ -164,7 +164,7 @@ new_data <- data.frame(strat_name = raw_data$strata_name,
                        latitude = raw_data$latitude,
                        longitude = raw_data$longitude,
                        count = raw_data$count,
-                       year = raw_data$year,
+                       year = raw_data$year_num,
                        firstyr = raw_data$first_year,
                        ObsN = raw_data$observer,
                        r_year = raw_data$year) %>% 
